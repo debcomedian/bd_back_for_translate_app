@@ -16,7 +16,7 @@ func GetTextsHandler(tableName string) gin.HandlerFunc {
 			SELECT id, 
 			       title_ru, title_en, title_de, 
 			       content_ru, content_en, content_de, 
-			       category_ru, category_en, category_de
+			       category_id
 			FROM ` + tableName
 		rows, err := Dbpool.Query(context.Background(), query)
 		if err != nil {
@@ -32,7 +32,7 @@ func GetTextsHandler(tableName string) gin.HandlerFunc {
 				&rt.ID,
 				&rt.TitleRu, &rt.TitleEn, &rt.TitleDe,
 				&rt.ContentRu, &rt.ContentEn, &rt.ContentDe,
-				&rt.CategoryRu, &rt.CategoryEn, &rt.CategoryDe,
+				&rt.CategoryID,
 			); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -54,14 +54,14 @@ func CreateTextHandler(tableName string) gin.HandlerFunc {
 			INSERT INTO ` + tableName + ` (
 				title_ru, title_en, title_de, 
 				content_ru, content_en, content_de, 
-				category_ru, category_en, category_de
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+				category_id
+			) VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING id
 		`
 		err := Dbpool.QueryRow(context.Background(), query,
 			newText.TitleRu, newText.TitleEn, newText.TitleDe,
 			newText.ContentRu, newText.ContentEn, newText.ContentDe,
-			newText.CategoryRu, newText.CategoryEn, newText.CategoryDe,
+			newText.CategoryID,
 		).Scan(&newText.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -89,13 +89,13 @@ func UpdateTextHandler(tableName string) gin.HandlerFunc {
 			UPDATE ` + tableName + ` 
 			SET title_ru=$1, title_en=$2, title_de=$3, 
 			    content_ru=$4, content_en=$5, content_de=$6, 
-			    category_ru=$7, category_en=$8, category_de=$9 
-			WHERE id=$10
+			    category_id=$7
+			WHERE id=$8
 		`
 		cmdTag, err := Dbpool.Exec(context.Background(), query,
 			updatedText.TitleRu, updatedText.TitleEn, updatedText.TitleDe,
 			updatedText.ContentRu, updatedText.ContentEn, updatedText.ContentDe,
-			updatedText.CategoryRu, updatedText.CategoryEn, updatedText.CategoryDe,
+			updatedText.CategoryID,
 			updatedText.ID,
 		)
 		if err != nil || cmdTag.RowsAffected() == 0 {

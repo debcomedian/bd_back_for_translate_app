@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
-
 )
 
 var Dbpool *pgxpool.Pool
@@ -15,11 +15,8 @@ var Dbpool *pgxpool.Pool
 
 func GetWords(c *gin.Context) {
 	query := `
-		SELECT id, 
-		       word_ru, word_en, word_de, 
-		       category_ru, category_en, category_de, 
-		       type_ru, type_en, type_de, 
-		       status 
+		SELECT id, word_ru, word_en, word_de,
+		       category_id, type_ru, type_en, type_de, status 
 		FROM words
 	`
 	rows, err := Dbpool.Query(context.Background(), query)
@@ -35,7 +32,7 @@ func GetWords(c *gin.Context) {
 		if err := rows.Scan(
 			&w.ID,
 			&w.WordRu, &w.WordEn, &w.WordDe,
-			&w.CategoryRu, &w.CategoryEn, &w.CategoryDe,
+			&w.CategoryID,
 			&w.TypeRu, &w.TypeEn, &w.TypeDe,
 			&w.Status,
 		); err != nil {
@@ -50,11 +47,8 @@ func GetWords(c *gin.Context) {
 func GetWordsByType(c *gin.Context) {
 	wordType := c.Param("type")
 	query := `
-		SELECT id, 
-		       word_ru, word_en, word_de, 
-		       category_ru, category_en, category_de, 
-		       type_ru, type_en, type_de, 
-		       status 
+		SELECT id, word_ru, word_en, word_de,
+		       category_id, type_ru, type_en, type_de, status 
 		FROM words 
 		WHERE type_ru = $1
 	`
@@ -71,7 +65,7 @@ func GetWordsByType(c *gin.Context) {
 		if err := rows.Scan(
 			&w.ID,
 			&w.WordRu, &w.WordEn, &w.WordDe,
-			&w.CategoryRu, &w.CategoryEn, &w.CategoryDe,
+			&w.CategoryID,
 			&w.TypeRu, &w.TypeEn, &w.TypeDe,
 			&w.Status,
 		); err != nil {
@@ -92,17 +86,16 @@ func CreateWord(c *gin.Context) {
 	query := `
 		INSERT INTO words (
 			word_ru, word_en, word_de, 
-			category_ru, category_en, category_de, 
-			type_ru, type_en, type_de, 
+			category_id, type_ru, type_en, type_de, 
 			status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id
 	`
 	err := Dbpool.QueryRow(
 		context.Background(),
 		query,
 		newWord.WordRu, newWord.WordEn, newWord.WordDe,
-		newWord.CategoryRu, newWord.CategoryEn, newWord.CategoryDe,
+		newWord.CategoryID,
 		newWord.TypeRu, newWord.TypeEn, newWord.TypeDe,
 		newWord.Status,
 	).Scan(&newWord.ID)
@@ -129,16 +122,15 @@ func UpdateWord(c *gin.Context) {
 	query := `
 		UPDATE words 
 		SET word_ru=$1, word_en=$2, word_de=$3, 
-		    category_ru=$4, category_en=$5, category_de=$6, 
-		    type_ru=$7, type_en=$8, type_de=$9, 
-		    status=$10 
-		WHERE id=$11
+		    category_id=$4, type_ru=$5, type_en=$6, type_de=$7, 
+		    status=$8 
+		WHERE id=$9
 	`
 	cmdTag, err := Dbpool.Exec(
 		context.Background(),
 		query,
 		updatedWord.WordRu, updatedWord.WordEn, updatedWord.WordDe,
-		updatedWord.CategoryRu, updatedWord.CategoryEn, updatedWord.CategoryDe,
+		updatedWord.CategoryID,
 		updatedWord.TypeRu, updatedWord.TypeEn, updatedWord.TypeDe,
 		updatedWord.Status,
 		updatedWord.ID,

@@ -24,7 +24,6 @@ func main() {
 
 	var err error
 	dbPool, err = pgxpool.Connect(context.Background(), dbURL)
-
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v\n", err)
 	}
@@ -33,6 +32,11 @@ func main() {
 	handlers.Dbpool = dbPool
 
 	router := gin.Default()
+
+	router.GET("/api/categories/:entity", handlers.GetCategoriesHandler)
+	router.POST("/api/categories", handlers.CreateCategoryHandler)
+	router.PUT("/api/categories/:id", handlers.UpdateCategoryHandler)
+	router.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler)
 
 	// Маршруты для работы со словами
 	router.GET("/api/words", handlers.GetWords)
