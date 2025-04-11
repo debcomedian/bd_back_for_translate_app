@@ -46,20 +46,10 @@ func main() {
 	router.DELETE("/api/words/:id", handlers.DeleteWord)
 
 	// Маршруты для работы с текстами
-	router.GET("/api/texts/small", handlers.GetTextsHandler("texts_small"))
-	router.POST("/api/texts/small", handlers.CreateTextHandler("texts_small"))
-	router.PUT("/api/texts/small/:id", handlers.UpdateTextHandler("texts_small"))
-	router.DELETE("/api/texts/small/:id", handlers.DeleteTextHandler("texts_small"))
-
-	router.GET("/api/texts/medium", handlers.GetTextsHandler("texts_medium"))
-	router.POST("/api/texts/medium", handlers.CreateTextHandler("texts_medium"))
-	router.PUT("/api/texts/medium/:id", handlers.UpdateTextHandler("texts_medium"))
-	router.DELETE("/api/texts/medium/:id", handlers.DeleteTextHandler("texts_medium"))
-
-	router.GET("/api/texts/large", handlers.GetTextsHandler("texts_large"))
-	router.POST("/api/texts/large", handlers.CreateTextHandler("texts_large"))
-	router.PUT("/api/texts/large/:id", handlers.UpdateTextHandler("texts_large"))
-	router.DELETE("/api/texts/large/:id", handlers.DeleteTextHandler("texts_large"))
+	router.GET("/api/texts", handlers.GetTextsHandler("texts"))
+	router.POST("/api/texts", handlers.CreateTextHandler("texts"))
+	router.PUT("/api/texts/:id", handlers.UpdateTextHandler("texts"))
+	router.DELETE("/api/texts/:id", handlers.DeleteTextHandler("texts"))
 
 	// Маршруты для работы с грамматиками
 	router.GET("/api/grammars", handlers.GetGrammarHandler("grammars"))
