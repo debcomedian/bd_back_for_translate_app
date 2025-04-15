@@ -33,7 +33,7 @@ func main() {
 
 	router := gin.Default()
 
-	router.GET("/api/categories/:entity", handlers.GetCategoriesHandler)
+	router.GET("/api/categories", handlers.GetCategoriesHandler)
 	router.POST("/api/categories", handlers.CreateCategoryHandler)
 	router.PUT("/api/categories/:id", handlers.UpdateCategoryHandler)
 	router.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler)

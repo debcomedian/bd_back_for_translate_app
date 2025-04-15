@@ -9,13 +9,11 @@ import (
 )
 
 func GetCategoriesHandler(c *gin.Context) {
-	catType := c.Param("entity")
 	query := `
 		SELECT id, name_en, name_ru, name_de, type, entity
 		FROM categories
-		WHERE entity = $1
 	`
-	rows, err := Dbpool.Query(context.Background(), query, catType)
+	rows, err := Dbpool.Query(context.Background(), query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
