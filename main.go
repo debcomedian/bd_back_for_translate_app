@@ -5,7 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/debcomedian/bd_back_for_translate_app/handlers"
+	"bd_back_for_translate_app/handlers"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/joho/godotenv"
@@ -30,28 +31,33 @@ func main() {
 	defer dbPool.Close()
 
 	handlers.Dbpool = dbPool
+	
+	handlers.NeuralClient, err = handlers.NewNeuralNetClient("./neuralnet/neuralnet_daemon.py")
+	if err != nil {
+		log.Fatalf("Ошибка запуска нейросетевого процесса: %v", err)
+	}
 
 	router := gin.Default()
+
+	router.POST("/api/upload/data", handlers.UploadDataHandler)
 
 	router.GET("/api/categories", handlers.GetCategoriesHandler)
 	router.POST("/api/categories", handlers.CreateCategoryHandler)
 	router.PUT("/api/categories/:id", handlers.UpdateCategoryHandler)
 	router.DELETE("/api/categories/:id", handlers.DeleteCategoryHandler)
 
-	// Маршруты для работы со словами
 	router.GET("/api/words", handlers.GetWords)
 	router.GET("/api/words/type/:type", handlers.GetWordsByType)
 	router.POST("/api/words", handlers.CreateWord)
 	router.PUT("/api/words/:id", handlers.UpdateWord)
 	router.DELETE("/api/words/:id", handlers.DeleteWord)
 
-	// Маршруты для работы с текстами
 	router.GET("/api/texts", handlers.GetTextsHandler("texts"))
 	router.POST("/api/texts", handlers.CreateTextHandler("texts"))
 	router.PUT("/api/texts/:id", handlers.UpdateTextHandler("texts"))
 	router.DELETE("/api/texts/:id", handlers.DeleteTextHandler("texts"))
 
-	// Маршруты для работы с грамматиками
+	
 	router.GET("/api/grammars", handlers.GetGrammarHandler("grammars"))
 	router.POST("/api/grammars", handlers.CreateGrammarHandler("grammars"))
 	router.PUT("/api/grammars/:id", handlers.UpdateGrammarHandler("grammars"))
