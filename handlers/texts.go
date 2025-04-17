@@ -8,118 +8,152 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ************** Обработчики для текстов **************
-
-func GetTextsHandler(tableName string) gin.HandlerFunc {
+func GetTextsHandler(table string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		query := `
-			SELECT id, 
-			       title_ru, title_en, title_de, 
-			       content_ru, content_en, content_de, 
+		q := `
+			SELECT id,
+			       title_ru, title_en, title_de,
+			       content_ru, content_en, content_de,
+			       transcription_ru, transcription_en, transcription_de,
+			       audio_ru, audio_en, audio_de,
 			       category_id
-			FROM ` + tableName
-		rows, err := Dbpool.Query(context.Background(), query)
+			FROM ` + table
+		rows, err := Dbpool.Query(context.Background(), q)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		defer rows.Close()
 
-		texts := []ReadingText{}
+		var list []ReadingText
 		for rows.Next() {
-			var rt ReadingText
+			var t ReadingText
 			if err := rows.Scan(
-				&rt.ID,
-				&rt.TitleRu, &rt.TitleEn, &rt.TitleDe,
-				&rt.ContentRu, &rt.ContentEn, &rt.ContentDe,
-				&rt.CategoryID,
+				&t.ID,
+				&t.TitleRu, &t.TitleEn, &t.TitleDe,
+				&t.ContentRu, &t.ContentEn, &t.ContentDe,
+				&t.TranscriptionRu, &t.TranscriptionEn, &t.TranscriptionDe,
+				&t.AudioRu, &t.AudioEn, &t.AudioDe,
+				&t.CategoryID,
 			); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
-			texts = append(texts, rt)
+			list = append(list, t)
 		}
-		c.JSON(http.StatusOK, texts)
+		c.JSON(http.StatusOK, list)
 	}
 }
 
-func CreateTextHandler(tableName string) gin.HandlerFunc {
+func CreateTextHandler(table string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var newText ReadingText
-		if err := c.ShouldBindJSON(&newText); err != nil {
+		var t ReadingText
+		if err := c.ShouldBindJSON(&t); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		query := `
-			INSERT INTO ` + tableName + ` (
-				title_ru, title_en, title_de, 
-				content_ru, content_en, content_de, 
+		q := `
+			INSERT INTO ` + table + ` (
+				title_ru, title_en, title_de,
+				content_ru, content_en, content_de,
+				transcription_ru, transcription_en, transcription_de,
+				audio_ru, audio_en, audio_de,
 				category_id
-			) VALUES ($1, $2, $3, $4, $5, $6, $7)
-			RETURNING id
-		`
-		err := Dbpool.QueryRow(context.Background(), query,
-			newText.TitleRu, newText.TitleEn, newText.TitleDe,
-			newText.ContentRu, newText.ContentEn, newText.ContentDe,
-			newText.CategoryID,
-		).Scan(&newText.ID)
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+			RETURNING id`
+		err := Dbpool.QueryRow(context.Background(), q,
+			t.TitleRu, t.TitleEn, t.TitleDe,
+			t.ContentRu, t.ContentEn, t.ContentDe,
+			t.TranscriptionRu, t.TranscriptionEn, t.TranscriptionDe,
+			nil, nil, nil, // пока без аудио
+			t.CategoryID,
+		).Scan(&t.ID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusCreated, newText)
+		genAudioForText(table, &t)
+		c.JSON(http.StatusCreated, t)
 	}
 }
 
-func UpdateTextHandler(tableName string) gin.HandlerFunc {
+func UpdateTextHandler(table string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		var updatedText ReadingText
-		if err := c.ShouldBindJSON(&updatedText); err != nil {
+		var t ReadingText
+		if err := c.ShouldBindJSON(&t); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		updatedText.ID = id
-		query := `
-			UPDATE ` + tableName + ` 
-			SET title_ru=$1, title_en=$2, title_de=$3, 
-			    content_ru=$4, content_en=$5, content_de=$6, 
-			    category_id=$7
-			WHERE id=$8
-		`
-		cmdTag, err := Dbpool.Exec(context.Background(), query,
-			updatedText.TitleRu, updatedText.TitleEn, updatedText.TitleDe,
-			updatedText.ContentRu, updatedText.ContentEn, updatedText.ContentDe,
-			updatedText.CategoryID,
-			updatedText.ID,
+		t.ID = id
+		q := `
+			UPDATE ` + table + ` SET
+				title_ru=$1, title_en=$2, title_de=$3,
+				content_ru=$4, content_en=$5, content_de=$6,
+				transcription_ru=$7, transcription_en=$8, transcription_de=$9,
+				audio_ru=$10, audio_en=$11, audio_de=$12,
+				category_id=$13
+			WHERE id=$14`
+		cmd, err := Dbpool.Exec(context.Background(), q,
+			t.TitleRu, t.TitleEn, t.TitleDe,
+			t.ContentRu, t.ContentEn, t.ContentDe,
+			t.TranscriptionRu, t.TranscriptionEn, t.TranscriptionDe,
+			t.AudioRu, t.AudioEn, t.AudioDe,
+			t.CategoryID, t.ID,
 		)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
+		if err != nil || cmd.RowsAffected() == 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "update failed"})
 			return
 		}
-		c.JSON(http.StatusOK, updatedText)
+		genAudioForText(table, &t)
+		c.JSON(http.StatusOK, t)
 	}
 }
 
-func DeleteTextHandler(tableName string) gin.HandlerFunc {
+func DeleteTextHandler(table string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 			return
 		}
-		query := "DELETE FROM " + tableName + " WHERE id=$1"
-		cmdTag, err := Dbpool.Exec(context.Background(), query, id)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete failed"})
+		cmd, err := Dbpool.Exec(context.Background(),
+			"DELETE FROM "+table+" WHERE id=$1", id)
+		if err != nil || cmd.RowsAffected() == 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
 			return
 		}
 		c.Status(http.StatusNoContent)
+	}
+}
+
+func genAudioForText(table string, t *ReadingText) {
+	if TtsClient == nil {
+		return
+	}
+	type rec struct {
+		ipa  string
+		code string
+		ptr  *[]byte
+		col  string
+	}
+	langs := []rec{
+		{t.TranscriptionRu, "ru", &t.AudioRu, "audio_ru"},
+		{t.TranscriptionEn, "en", &t.AudioEn, "audio_en"},
+		{t.TranscriptionDe, "de", &t.AudioDe, "audio_de"},
+	}
+	for _, l := range langs {
+		if l.ipa == "" {
+			continue
+		}
+		if data, err := TtsClient.Synthesize(l.ipa, l.code); err == nil {
+			*l.ptr = data
+			_, _ = Dbpool.Exec(context.Background(),
+				`UPDATE `+table+` SET `+l.col+`=$1 WHERE id=$2`, data, t.ID)
+		}
 	}
 }

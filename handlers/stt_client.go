@@ -10,14 +10,14 @@ import (
 	"sync"
 )
 
-type NeuralNetClient struct {
+type STTClient struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	stdout *bufio.Reader
 	mu     sync.Mutex
 }
 
-func NewNeuralNetClient(pythonScriptPath string) (*NeuralNetClient, error) {
+func NewSTTClient(pythonScriptPath string) (*STTClient, error) {
 	cmd := exec.Command("python", pythonScriptPath)
 	cmd.Env = append(
 		os.Environ(),
@@ -36,7 +36,7 @@ func NewNeuralNetClient(pythonScriptPath string) (*NeuralNetClient, error) {
 		return nil, err
 	}
 
-	client := &NeuralNetClient{
+	client := &STTClient{
 		cmd:    cmd,
 		stdin:  stdin,
 		stdout: bufio.NewReader(stdoutPipe),
@@ -49,7 +49,7 @@ func NewNeuralNetClient(pythonScriptPath string) (*NeuralNetClient, error) {
 	return client, nil
 }
 
-func (nc *NeuralNetClient) Process(audioPath string) (map[string]interface{}, error) {
+func (nc *STTClient) Process(audioPath string) (map[string]interface{}, error) {
 	nc.mu.Lock()
 	defer nc.mu.Unlock()
 

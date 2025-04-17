@@ -1,26 +1,38 @@
 package handlers
 
 type Word struct {
-	ID         int    `json:"id"`
-	WordRu     string `json:"word_ru"`
-	WordEn     string `json:"word_en"`
-	WordDe     string `json:"word_de"`
-	CategoryID int    `json:"category_id"`
-	TypeRu     string `json:"type_ru"`
-	TypeEn     string `json:"type_en"`
-	TypeDe     string `json:"type_de"`
-	Status     string `json:"status"`
+	ID              int    `json:"id"`
+	WordRu          string `json:"word_ru"`
+	WordEn          string `json:"word_en"`
+	WordDe          string `json:"word_de"`
+	TranscriptionRu string `json:"transcription_ru"`
+	TranscriptionEn string `json:"transcription_en"`
+	TranscriptionDe string `json:"transcription_de"`
+	AudioRu         []byte `json:"audio_ru"`
+	AudioEn         []byte `json:"audio_en"`
+	AudioDe         []byte `json:"audio_de"`
+	CategoryID      int    `json:"category_id"`
+	TypeRu          string `json:"type_ru"`
+	TypeEn          string `json:"type_en"`
+	TypeDe          string `json:"type_de"`
+	Status          string `json:"status"`
 }
 
 type ReadingText struct {
-	ID         int    `json:"id"`
-	TitleRu    string `json:"title_ru"`
-	TitleEn    string `json:"title_en"`
-	TitleDe    string `json:"title_de"`
-	ContentRu  string `json:"content_ru"`
-	ContentEn  string `json:"content_en"`
-	ContentDe  string `json:"content_de"`
-	CategoryID int    `json:"category_id"`
+	ID              int    `json:"id"`
+	TitleRu         string `json:"title_ru"`
+	TitleEn         string `json:"title_en"`
+	TitleDe         string `json:"title_de"`
+	ContentRu       string `json:"content_ru"`
+	ContentEn       string `json:"content_en"`
+	ContentDe       string `json:"content_de"`
+	TranscriptionRu string `json:"transcription_ru"`
+	TranscriptionEn string `json:"transcription_en"`
+	TranscriptionDe string `json:"transcription_de"`
+	AudioRu         []byte `json:"audio_ru"`
+	AudioEn         []byte `json:"audio_en"`
+	AudioDe         []byte `json:"audio_de"`
+	CategoryID      int    `json:"category_id"`
 }
 
 type Category struct {

@@ -31,10 +31,19 @@ func main() {
 	defer dbPool.Close()
 
 	handlers.Dbpool = dbPool
-	
-	handlers.NeuralClient, err = handlers.NewNeuralNetClient("./neuralnet/neuralnet_daemon.py")
+
+	handlers.SttClient, err = handlers.NewSTTClient("./stt/stt_daemon.py")
 	if err != nil {
 		log.Fatalf("Ошибка запуска нейросетевого процесса: %v", err)
+	}
+
+	handlers.TtsClient, err = handlers.NewTTSClient("./tts/tts_daemon.py")
+	if err != nil {
+		log.Fatalf("TTS daemon start failed: %v", err)
+	}
+
+	if err := handlers.GenerateMissingWordAudio(); err != nil {
+		log.Printf("TTS batch error: %v", err)
 	}
 
 	router := gin.Default()
@@ -57,7 +66,6 @@ func main() {
 	router.PUT("/api/texts/:id", handlers.UpdateTextHandler("texts"))
 	router.DELETE("/api/texts/:id", handlers.DeleteTextHandler("texts"))
 
-	
 	router.GET("/api/grammars", handlers.GetGrammarHandler("grammars"))
 	router.POST("/api/grammars", handlers.CreateGrammarHandler("grammars"))
 	router.PUT("/api/grammars/:id", handlers.UpdateGrammarHandler("grammars"))

@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var NeuralClient *NeuralNetClient
+var SttClient *STTClient
 
 func UploadDataHandler(c *gin.Context) {
 
@@ -37,7 +37,7 @@ func UploadDataHandler(c *gin.Context) {
 		return
 	}
 
-	result, err := NeuralClient.Process(tempFilePath)
+	result, err := SttClient.Process(tempFilePath)
 	if err != nil {
 		log.Printf("Ошибка обработки файла через Python процесс: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

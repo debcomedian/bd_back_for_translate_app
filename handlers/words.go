@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -11,148 +12,180 @@ import (
 
 var Dbpool *pgxpool.Pool
 
-// ************** Обработчики для слов **************
-
 func GetWords(c *gin.Context) {
-	query := `
+	const q = `
 		SELECT id, word_ru, word_en, word_de,
-		       category_id, type_ru, type_en, type_de, status 
-		FROM words
-	`
-	rows, err := Dbpool.Query(context.Background(), query)
+		       transcription_ru, transcription_en, transcription_de,
+		       audio_ru, audio_en, audio_de,
+		       category_id, type_ru, type_en, type_de, status
+		FROM words`
+	rows, err := Dbpool.Query(context.Background(), q)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	words := []Word{}
+	var out []Word
 	for rows.Next() {
 		var w Word
 		if err := rows.Scan(
-			&w.ID,
-			&w.WordRu, &w.WordEn, &w.WordDe,
-			&w.CategoryID,
-			&w.TypeRu, &w.TypeEn, &w.TypeDe,
+			&w.ID, &w.WordRu, &w.WordEn, &w.WordDe,
+			&w.TranscriptionRu, &w.TranscriptionEn, &w.TranscriptionDe,
+			&w.AudioRu, &w.AudioEn, &w.AudioDe,
+			&w.CategoryID, &w.TypeRu, &w.TypeEn, &w.TypeDe,
 			&w.Status,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		words = append(words, w)
+		out = append(out, w)
 	}
-	c.JSON(http.StatusOK, words)
+	c.JSON(http.StatusOK, out)
 }
 
 func GetWordsByType(c *gin.Context) {
-	wordType := c.Param("type")
-	query := `
+	typ := c.Param("type")
+	const q = `
 		SELECT id, word_ru, word_en, word_de,
-		       category_id, type_ru, type_en, type_de, status 
-		FROM words 
-		WHERE type_ru = $1
-	`
-	rows, err := Dbpool.Query(context.Background(), query, wordType)
+		       transcription_ru, transcription_en, transcription_de,
+		       audio_ru, audio_en, audio_de,
+		       category_id, type_ru, type_en, type_de, status
+		FROM words WHERE type_ru = $1`
+	rows, err := Dbpool.Query(context.Background(), q, typ)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	words := []Word{}
+	var out []Word
 	for rows.Next() {
 		var w Word
 		if err := rows.Scan(
-			&w.ID,
-			&w.WordRu, &w.WordEn, &w.WordDe,
-			&w.CategoryID,
-			&w.TypeRu, &w.TypeEn, &w.TypeDe,
+			&w.ID, &w.WordRu, &w.WordEn, &w.WordDe,
+			&w.TranscriptionRu, &w.TranscriptionEn, &w.TranscriptionDe,
+			&w.AudioRu, &w.AudioEn, &w.AudioDe,
+			&w.CategoryID, &w.TypeRu, &w.TypeEn, &w.TypeDe,
 			&w.Status,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		words = append(words, w)
+		out = append(out, w)
 	}
-	c.JSON(http.StatusOK, words)
+	c.JSON(http.StatusOK, out)
 }
 
 func CreateWord(c *gin.Context) {
-	var newWord Word
-	if err := c.ShouldBindJSON(&newWord); err != nil {
+	var w Word
+	if err := c.ShouldBindJSON(&w); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	query := `
+
+	const ins = `
 		INSERT INTO words (
-			word_ru, word_en, word_de, 
-			category_id, type_ru, type_en, type_de, 
-			status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id
-	`
-	err := Dbpool.QueryRow(
-		context.Background(),
-		query,
-		newWord.WordRu, newWord.WordEn, newWord.WordDe,
-		newWord.CategoryID,
-		newWord.TypeRu, newWord.TypeEn, newWord.TypeDe,
-		newWord.Status,
-	).Scan(&newWord.ID)
+			word_ru, word_en, word_de,
+			transcription_ru, transcription_en, transcription_de,
+			audio_ru, audio_en, audio_de,
+			category_id, type_ru, type_en, type_de, status
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+		RETURNING id`
+	err := Dbpool.QueryRow(context.Background(), ins,
+		w.WordRu, w.WordEn, w.WordDe,
+		w.TranscriptionRu, w.TranscriptionEn, w.TranscriptionDe,
+		nil, nil, nil,
+		w.CategoryID, w.TypeRu, w.TypeEn, w.TypeDe, w.Status,
+	).Scan(&w.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, newWord)
+
+	genAudioForWord(&w)
+
+	c.JSON(http.StatusCreated, w)
 }
 
 func UpdateWord(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	var updatedWord Word
-	if err := c.ShouldBindJSON(&updatedWord); err != nil {
+	var w Word
+	if err := c.ShouldBindJSON(&w); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	updatedWord.ID = id
-	query := `
-		UPDATE words 
-		SET word_ru=$1, word_en=$2, word_de=$3, 
-		    category_id=$4, type_ru=$5, type_en=$6, type_de=$7, 
-		    status=$8 
-		WHERE id=$9
-	`
-	cmdTag, err := Dbpool.Exec(
-		context.Background(),
-		query,
-		updatedWord.WordRu, updatedWord.WordEn, updatedWord.WordDe,
-		updatedWord.CategoryID,
-		updatedWord.TypeRu, updatedWord.TypeEn, updatedWord.TypeDe,
-		updatedWord.Status,
-		updatedWord.ID,
+	w.ID = id
+
+	const upd = `
+		UPDATE words SET
+			word_ru=$1, word_en=$2, word_de=$3,
+			transcription_ru=$4, transcription_en=$5, transcription_de=$6,
+			audio_ru=$7, audio_en=$8, audio_de=$9,
+			category_id=$10, type_ru=$11, type_en=$12, type_de=$13, status=$14
+		WHERE id=$15`
+	cmd, err := Dbpool.Exec(context.Background(), upd,
+		w.WordRu, w.WordEn, w.WordDe,
+		w.TranscriptionRu, w.TranscriptionEn, w.TranscriptionDe,
+		w.AudioRu, w.AudioEn, w.AudioDe,
+		w.CategoryID, w.TypeRu, w.TypeEn, w.TypeDe, w.Status,
+		w.ID,
 	)
-	if err != nil || cmdTag.RowsAffected() == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
+	if err != nil || cmd.RowsAffected() == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "update failed"})
 		return
 	}
-	c.JSON(http.StatusOK, updatedWord)
+
+	genAudioForWord(&w)
+
+	c.JSON(http.StatusOK, w)
 }
 
 func DeleteWord(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	cmdTag, err := Dbpool.Exec(context.Background(), "DELETE FROM words WHERE id=$1", id)
-	if err != nil || cmdTag.RowsAffected() == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete failed"})
+	cmd, err := Dbpool.Exec(context.Background(), `DELETE FROM words WHERE id=$1`, id)
+	if err != nil || cmd.RowsAffected() == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// helpers.go ─ один общий помощник
+func genAudioForWord(w *Word) {
+	if TtsClient == nil {
+		return
+	}
+	type rec struct {
+		text string // теперь само слово!
+		lang string
+		ptr  *[]byte
+		col  string
+	}
+	langs := []rec{
+		{w.WordRu, "ru", &w.AudioRu, "audio_ru"},
+		{w.WordEn, "en", &w.AudioEn, "audio_en"},
+		{w.WordDe, "de", &w.AudioDe, "audio_de"},
+	}
+	for _, r := range langs {
+		if r.text == "" { // слова нет — пропускаем
+			continue
+		}
+		wav, err := TtsClient.Synthesize(r.text, r.lang)
+		if err != nil {
+			log.Printf("[TTS] id=%d %s error: %v", w.ID, r.lang, err)
+			continue
+		}
+		*r.ptr = wav
+		_, _ = Dbpool.Exec(context.Background(),
+			`UPDATE words SET `+r.col+`=$1 WHERE id=$2`, wav, w.ID)
+	}
 }
