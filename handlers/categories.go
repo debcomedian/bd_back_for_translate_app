@@ -8,6 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Category struct {
+	ID     int    `json:"id"`
+	NameEn string `json:"name_en"`
+	NameRu string `json:"name_ru"`
+	NameDe string `json:"name_de"`
+	Type   string `json:"type"`
+	Entity string `json:"entity"`
+}
+
 func GetCategoriesHandler(c *gin.Context) {
 	query := `
 		SELECT id, name_en, name_ru, name_de, type, entity

@@ -12,6 +12,24 @@ import (
 
 var Dbpool *pgxpool.Pool
 
+type Word struct {
+	ID              int    `json:"id"`
+	WordRu          string `json:"word_ru"`
+	WordEn          string `json:"word_en"`
+	WordDe          string `json:"word_de"`
+	TranscriptionRu string `json:"transcription_ru"`
+	TranscriptionEn string `json:"transcription_en"`
+	TranscriptionDe string `json:"transcription_de"`
+	AudioRu         []byte `json:"audio_ru"`
+	AudioEn         []byte `json:"audio_en"`
+	AudioDe         []byte `json:"audio_de"`
+	CategoryID      int    `json:"category_id"`
+	TypeRu          string `json:"type_ru"`
+	TypeEn          string `json:"type_en"`
+	TypeDe          string `json:"type_de"`
+	Status          string `json:"status"`
+}
+
 func GetWords(c *gin.Context) {
 	const q = `
 		SELECT id, word_ru, word_en, word_de,
@@ -159,7 +177,6 @@ func DeleteWord(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// helpers.go ─ один общий помощник
 func genAudioForWord(w *Word) {
 	if TtsClient == nil {
 		return

@@ -8,6 +8,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type ReadingText struct {
+	ID              int    `json:"id"`
+	TitleRu         string `json:"title_ru"`
+	TitleEn         string `json:"title_en"`
+	TitleDe         string `json:"title_de"`
+	ContentRu       string `json:"content_ru"`
+	ContentEn       string `json:"content_en"`
+	ContentDe       string `json:"content_de"`
+	TranscriptionRu string `json:"transcription_ru"`
+	TranscriptionEn string `json:"transcription_en"`
+	TranscriptionDe string `json:"transcription_de"`
+	AudioRu         []byte `json:"audio_ru"`
+	AudioEn         []byte `json:"audio_en"`
+	AudioDe         []byte `json:"audio_de"`
+	CategoryID      int    `json:"category_id"`
+}
+
 func GetTextsHandler(table string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		q := `
