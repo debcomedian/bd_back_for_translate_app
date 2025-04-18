@@ -1,511 +1,317 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-type Grammar struct {
-	ID            int    `json:"id"`
-	TitleRu       string `json:"title_ru"`
-	TitleEn       string `json:"title_en"`
-	TitleDe       string `json:"title_de"`
-	DescriptionRu string `json:"description_ru"`
-	DescriptionEn string `json:"description_en"`
-	DescriptionDe string `json:"description_de"`
-	Language      string `json:"language"`
+type Grammars struct {
+	ID            int    `gorm:"primaryKey;column:id"   json:"id"`
+	TitleRu       string `gorm:"column:title_ru"        json:"title_ru"`
+	TitleEn       string `gorm:"column:title_en"        json:"title_en"`
+	TitleDe       string `gorm:"column:title_de"        json:"title_de"`
+	DescriptionRu string `gorm:"column:description_ru"  json:"description_ru"`
+	DescriptionEn string `gorm:"column:description_en"  json:"description_en"`
+	DescriptionDe string `gorm:"column:description_de"  json:"description_de"`
+	Language      string `gorm:"column:language"        json:"language"`
 }
 
 type GrammarRules struct {
-	ID                int    `json:"id"`
-	GrammarID         int    `json:"grammar_id"`
-	RuleNameRu        string `json:"rule_name_ru"`
-	RuleNameEn        string `json:"rule_name_en"`
-	RuleNameDe        string `json:"rule_name_de"`
-	RuleDescriptionRu string `json:"rule_description_ru"`
-	RuleDescriptionEn string `json:"rule_description_en"`
-	RuleDescriptionDe string `json:"rule_description_de"`
+	ID                int    `gorm:"primaryKey;column:id"              json:"id"`
+	GrammarID         int    `gorm:"column:grammar_id;index"           json:"grammar_id"`
+	RuleNameRu        string `gorm:"column:rule_name_ru"               json:"rule_name_ru"`
+	RuleNameEn        string `gorm:"column:rule_name_en"               json:"rule_name_en"`
+	RuleNameDe        string `gorm:"column:rule_name_de"               json:"rule_name_de"`
+	RuleDescriptionRu string `gorm:"column:rule_description_ru"        json:"rule_description_ru"`
+	RuleDescriptionEn string `gorm:"column:rule_description_en"        json:"rule_description_en"`
+	RuleDescriptionDe string `gorm:"column:rule_description_de"        json:"rule_description_de"`
 }
 
 type GrammarExamples struct {
-	ID        int    `json:"id"`
-	RuleID    int    `json:"rule_id"`
-	ExampleRu string `json:"example_ru"`
-	ExampleEn string `json:"example_en"`
-	ExampleDe string `json:"example_de"`
+	ID        int    `gorm:"primaryKey;column:id"    json:"id"`
+	RuleID    int    `gorm:"column:rule_id;index"    json:"rule_id"`
+	ExampleRu string `gorm:"column:example_ru"       json:"example_ru"`
+	ExampleEn string `gorm:"column:example_en"       json:"example_en"`
+	ExampleDe string `gorm:"column:example_de"       json:"example_de"`
 }
 
 type GrammarExceptions struct {
-	ID            int    `json:"id"`
-	RuleID        int    `json:"rule_id"`
-	DescriptionRu string `json:"description_ru"`
-	DescriptionEn string `json:"description_en"`
-	DescriptionDe string `json:"description_de"`
-	ExplanationRu string `json:"explanation_ru"`
-	ExplanationEn string `json:"explanation_en"`
-	ExplanationDe string `json:"explanation_de"`
+	ID            int    `gorm:"primaryKey;column:id"       json:"id"`
+	RuleID        int    `gorm:"column:rule_id;index"       json:"rule_id"`
+	DescriptionRu string `gorm:"column:description_ru"      json:"description_ru"`
+	DescriptionEn string `gorm:"column:description_en"      json:"description_en"`
+	DescriptionDe string `gorm:"column:description_de"      json:"description_de"`
+	ExplanationRu string `gorm:"column:explanation_ru"      json:"explanation_ru"`
+	ExplanationEn string `gorm:"column:explanation_en"      json:"explanation_en"`
+	ExplanationDe string `gorm:"column:explanation_de"      json:"explanation_de"`
 }
 
-func GetGrammarHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		query := `
-			SELECT id, 
-			       title_ru, title_en, title_de, 
-			       description_ru, description_en, description_de, 
-			       language 
-			FROM ` + table
-		rows, err := Dbpool.Query(context.Background(), query)
-		if err != nil {
+func GetGrammars(c *gin.Context) {
+	var g []Grammars
+	if err := DB.Find(&g).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, g)
+
+}
+
+func CreateGrammars(c *gin.Context) {
+	var g Grammars
+	if err := c.BindJSON(&g); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := DB.Create(&g).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, g)
+}
+
+func UpdateGrammars(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var g Grammars
+	if err = DB.First(&g, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "grammar not found"})
+		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		}
-		defer rows.Close()
-
-		grammars := []Grammar{}
-		for rows.Next() {
-			var g Grammar
-			if err := rows.Scan(
-				&g.ID,
-				&g.TitleRu, &g.TitleEn, &g.TitleDe,
-				&g.DescriptionRu, &g.DescriptionEn, &g.DescriptionDe,
-				&g.Language,
-			); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			grammars = append(grammars, g)
-		}
-		c.JSON(http.StatusOK, grammars)
+		return
 	}
+
+	var input Grammars
+	if err = c.BindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err = DB.Session(&gorm.Session{FullSaveAssociations: true}).
+		Model(&Grammars{ID: id}).Updates(input).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, input)
 }
 
-func CreateGrammarHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var newGrammar Grammar
-		if err := c.ShouldBindJSON(&newGrammar); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		query := `
-			INSERT INTO ` + table + ` (
-				title_ru, title_en, title_de, 
-				description_ru, description_en, description_de, 
-				language
-			) VALUES ($1, $2, $3, $4, $5, $6, $7)
-			RETURNING id
-		`
-		err := Dbpool.QueryRow(
-			context.Background(),
-			query,
-			newGrammar.TitleRu, newGrammar.TitleEn, newGrammar.TitleDe,
-			newGrammar.DescriptionRu, newGrammar.DescriptionEn, newGrammar.DescriptionDe,
-			newGrammar.Language,
-		).Scan(&newGrammar.ID)
-		if err != nil {
+func DeleteGrammars(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err = DB.Delete(&Grammars{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// ************** GrammarRules **************
+
+func GetGrammarRules(c *gin.Context) {
+	var items []GrammarRules
+	if err := DB.Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, items)
+}
+
+func CreateGrammarRules(c *gin.Context) {
+	var item GrammarRules
+	if !bindJSON(c, &item) {
+		return
+	}
+	if err := DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, item)
+}
+
+func UpdateGrammarRules(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
+	}
+
+	var item GrammarRules
+	if err := DB.First(&item, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		}
-		c.JSON(http.StatusCreated, newGrammar)
+		return
 	}
+
+	var input GrammarRules
+	if !bindJSON(c, &input) {
+		return
+	}
+	input.ID = id
+
+	if err := DB.Session(&gorm.Session{FullSaveAssociations: true}).
+		Model(&item).
+		Updates(input).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, input)
 }
 
-func UpdateGrammarHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-			return
-		}
-		var updatedGrammar Grammar
-		if err := c.ShouldBindJSON(&updatedGrammar); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		updatedGrammar.ID = id
-		query := `
-			UPDATE ` + table + ` SET 
-				title_ru=$1, title_en=$2, title_de=$3, 
-				description_ru=$4, description_en=$5, description_de=$6, 
-				language=$7
-			WHERE id=$8
-		`
-		cmdTag, err := Dbpool.Exec(
-			context.Background(),
-			query,
-			updatedGrammar.TitleRu, updatedGrammar.TitleEn, updatedGrammar.TitleDe,
-			updatedGrammar.DescriptionRu, updatedGrammar.DescriptionEn, updatedGrammar.DescriptionDe,
-			updatedGrammar.Language,
-			updatedGrammar.ID,
-		)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
-			return
-		}
-		c.JSON(http.StatusOK, updatedGrammar)
+func DeleteGrammarRules(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
 	}
+	if err := DB.Delete(&GrammarRules{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
-func DeleteGrammarHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-			return
-		}
-		cmdTag, err := Dbpool.Exec(context.Background(), "DELETE FROM "+table+" WHERE id=$1", id)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete failed"})
-			return
-		}
-		c.Status(http.StatusNoContent)
+// ************** GrammarExamples **************
+
+func GetGrammarExamples(c *gin.Context) {
+	var items []GrammarExamples
+	if err := DB.Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
+	c.JSON(http.StatusOK, items)
 }
 
-// ************** Обработчики для правил грамматики **************
+func CreateGrammarExamples(c *gin.Context) {
+	var item GrammarExamples
+	if !bindJSON(c, &item) {
+		return
+	}
+	if err := DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, item)
+}
 
-func GetGrammarRulesHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		query := `
-			SELECT id, grammar_id, 
-			       rule_name_ru, rule_name_en, rule_name_de, 
-			       rule_description_ru, rule_description_en, rule_description_de 
-			FROM ` + table
-		rows, err := Dbpool.Query(context.Background(), query)
-		if err != nil {
+func UpdateGrammarExamples(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
+	}
+
+	var item GrammarExamples
+	if err := DB.First(&item, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		}
-		defer rows.Close()
-
-		rules := []GrammarRules{}
-		for rows.Next() {
-			var r GrammarRules
-			if err := rows.Scan(
-				&r.ID, &r.GrammarID,
-				&r.RuleNameRu, &r.RuleNameEn, &r.RuleNameDe,
-				&r.RuleDescriptionRu, &r.RuleDescriptionEn, &r.RuleDescriptionDe,
-			); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			rules = append(rules, r)
-		}
-		c.JSON(http.StatusOK, rules)
+		return
 	}
+
+	var input GrammarExamples
+	if !bindJSON(c, &input) {
+		return
+	}
+	input.ID = id
+
+	if err := DB.Model(&item).Updates(input).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, input)
 }
 
-func CreateGrammarRulesHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var newRule GrammarRules
-		if err := c.ShouldBindJSON(&newRule); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		query := `
-			INSERT INTO ` + table + ` (
-				grammar_id, 
-				rule_name_ru, rule_name_en, rule_name_de, 
-				rule_description_ru, rule_description_en, rule_description_de
-			) VALUES ($1, $2, $3, $4, $5, $6, $7)
-			RETURNING id
-		`
-		err := Dbpool.QueryRow(
-			context.Background(),
-			query,
-			newRule.GrammarID,
-			newRule.RuleNameRu, newRule.RuleNameEn, newRule.RuleNameDe,
-			newRule.RuleDescriptionRu, newRule.RuleDescriptionEn, newRule.RuleDescriptionDe,
-		).Scan(&newRule.ID)
-		if err != nil {
+func DeleteGrammarExamples(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
+	}
+	if err := DB.Delete(&GrammarExamples{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// ************** GrammarExceptions **************
+
+func GetGrammarExceptions(c *gin.Context) {
+	var items []GrammarExceptions
+	if err := DB.Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, items)
+}
+
+func CreateGrammarExceptions(c *gin.Context) {
+	var item GrammarExceptions
+	if !bindJSON(c, &item) {
+		return
+	}
+	if err := DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, item)
+}
+
+func UpdateGrammarExceptions(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
+	}
+
+	var item GrammarExceptions
+	if err := DB.First(&item, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		}
-		c.JSON(http.StatusCreated, newRule)
+		return
 	}
+
+	var input GrammarExceptions
+	if !bindJSON(c, &input) {
+		return
+	}
+	input.ID = id
+
+	if err := DB.Model(&item).Updates(input).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, input)
 }
 
-func UpdateGrammarRulesHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-			return
-		}
-		var updatedRule GrammarRules
-		if err := c.ShouldBindJSON(&updatedRule); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		updatedRule.ID = id
-		query := `
-			UPDATE ` + table + ` SET 
-				grammar_id=$1, 
-				rule_name_ru=$2, rule_name_en=$3, rule_name_de=$4, 
-				rule_description_ru=$5, rule_description_en=$6, rule_description_de=$7
-			WHERE id=$8
-		`
-		cmdTag, err := Dbpool.Exec(
-			context.Background(),
-			query,
-			updatedRule.GrammarID,
-			updatedRule.RuleNameRu, updatedRule.RuleNameEn, updatedRule.RuleNameDe,
-			updatedRule.RuleDescriptionRu, updatedRule.RuleDescriptionEn, updatedRule.RuleDescriptionDe,
-			updatedRule.ID,
-		)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
-			return
-		}
-		c.JSON(http.StatusOK, updatedRule)
+func DeleteGrammarExceptions(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
 	}
-}
-
-func DeleteGrammarRulesHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-			return
-		}
-		cmdTag, err := Dbpool.Exec(context.Background(), "DELETE FROM "+table+" WHERE id=$1", id)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete failed"})
-			return
-		}
-		c.Status(http.StatusNoContent)
+	if err := DB.Delete(&GrammarExceptions{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-}
-
-// ************** Обработчики для примеров правил **************
-
-func GetGrammarExamplesHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		query := `
-			SELECT id, rule_id, 
-			       example_ru, example_en, example_de 
-			FROM ` + table
-		rows, err := Dbpool.Query(context.Background(), query)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		defer rows.Close()
-
-		examples := []GrammarExamples{}
-		for rows.Next() {
-			var ex GrammarExamples
-			if err := rows.Scan(
-				&ex.ID, &ex.RuleID,
-				&ex.ExampleRu, &ex.ExampleEn, &ex.ExampleDe,
-			); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			examples = append(examples, ex)
-		}
-		c.JSON(http.StatusOK, examples)
-	}
-}
-
-func CreateGrammarExamplesHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var newExample GrammarExamples
-		if err := c.ShouldBindJSON(&newExample); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		query := `
-			INSERT INTO ` + table + ` (
-				rule_id, example_ru, example_en, example_de
-			) VALUES ($1, $2, $3, $4)
-			RETURNING id
-		`
-		err := Dbpool.QueryRow(
-			context.Background(),
-			query,
-			newExample.RuleID,
-			newExample.ExampleRu, newExample.ExampleEn, newExample.ExampleDe,
-		).Scan(&newExample.ID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusCreated, newExample)
-	}
-}
-
-func UpdateGrammarExamplesHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-			return
-		}
-		var updatedExample GrammarExamples
-		if err := c.ShouldBindJSON(&updatedExample); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		updatedExample.ID = id
-		query := `
-			UPDATE ` + table + ` SET 
-				rule_id=$1, 
-				example_ru=$2, example_en=$3, example_de=$4
-			WHERE id=$5
-		`
-		cmdTag, err := Dbpool.Exec(
-			context.Background(),
-			query,
-			updatedExample.RuleID,
-			updatedExample.ExampleRu, updatedExample.ExampleEn, updatedExample.ExampleDe,
-			updatedExample.ID,
-		)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
-			return
-		}
-		c.JSON(http.StatusOK, updatedExample)
-	}
-}
-
-func DeleteGrammarExamplesHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-			return
-		}
-		cmdTag, err := Dbpool.Exec(context.Background(), "DELETE FROM "+table+" WHERE id=$1", id)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete failed"})
-			return
-		}
-		c.Status(http.StatusNoContent)
-	}
-}
-
-// ************** Обработчики для исключений правил **************
-
-func GetGrammarExceptionsHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		query := `
-			SELECT id, rule_id, 
-			       description_ru, description_en, description_de, 
-			       explanation_ru, explanation_en, explanation_de 
-			FROM ` + table
-		rows, err := Dbpool.Query(context.Background(), query)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		defer rows.Close()
-
-		exceptions := []GrammarExceptions{}
-		for rows.Next() {
-			var ex GrammarExceptions
-			if err := rows.Scan(
-				&ex.ID, &ex.RuleID,
-				&ex.DescriptionRu, &ex.DescriptionEn, &ex.DescriptionDe,
-				&ex.ExplanationRu, &ex.ExplanationEn, &ex.ExplanationDe,
-			); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			exceptions = append(exceptions, ex)
-		}
-		c.JSON(http.StatusOK, exceptions)
-	}
-}
-
-func CreateGrammarExceptionsHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var newException GrammarExceptions
-		if err := c.ShouldBindJSON(&newException); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		query := `
-			INSERT INTO ` + table + ` (
-				rule_id, 
-				description_ru, description_en, description_de, 
-				explanation_ru, explanation_en, explanation_de
-			) VALUES ($1, $2, $3, $4, $5, $6, $7)
-			RETURNING id
-		`
-		err := Dbpool.QueryRow(
-			context.Background(),
-			query,
-			newException.RuleID,
-			newException.DescriptionRu, newException.DescriptionEn, newException.DescriptionDe,
-			newException.ExplanationRu, newException.ExplanationEn, newException.ExplanationDe,
-		).Scan(&newException.ID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusCreated, newException)
-	}
-}
-
-func UpdateGrammarExceptionsHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-			return
-		}
-		var updatedException GrammarExceptions
-		if err := c.ShouldBindJSON(&updatedException); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		updatedException.ID = id
-		query := `
-			UPDATE ` + table + ` SET 
-				rule_id=$1, 
-				description_ru=$2, description_en=$3, description_de=$4, 
-				explanation_ru=$5, explanation_en=$6, explanation_de=$7
-			WHERE id=$8
-		`
-		cmdTag, err := Dbpool.Exec(
-			context.Background(),
-			query,
-			updatedException.RuleID,
-			updatedException.DescriptionRu, updatedException.DescriptionEn, updatedException.DescriptionDe,
-			updatedException.ExplanationRu, updatedException.ExplanationEn, updatedException.ExplanationDe,
-			updatedException.ID,
-		)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
-			return
-		}
-		c.JSON(http.StatusOK, updatedException)
-	}
-}
-
-func DeleteGrammarExceptionsHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		idStr := c.Param("id")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-			return
-		}
-		cmdTag, err := Dbpool.Exec(context.Background(), "DELETE FROM "+table+" WHERE id=$1", id)
-		if err != nil || cmdTag.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete failed"})
-			return
-		}
-		c.Status(http.StatusNoContent)
-	}
+	c.Status(http.StatusNoContent)
 }

@@ -1,110 +1,77 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Category struct {
-	ID     int    `json:"id"`
-	NameEn string `json:"name_en"`
-	NameRu string `json:"name_ru"`
-	NameDe string `json:"name_de"`
-	Type   string `json:"type"`
-	Entity string `json:"entity"`
+	ID     int    `gorm:"primaryKey;column:id" json:"id"`
+	NameEn string `gorm:"column:name_en"       json:"name_en"`
+	NameRu string `gorm:"column:name_ru"       json:"name_ru"`
+	NameDe string `gorm:"column:name_de"       json:"name_de"`
+	Type   string `gorm:"column:type"          json:"type"`
+	Entity string `gorm:"column:entity"        json:"entity"`
 }
 
-func GetCategoriesHandler(c *gin.Context) {
-	query := `
-		SELECT id, name_en, name_ru, name_de, type, entity
-		FROM categories
-	`
-	rows, err := Dbpool.Query(context.Background(), query)
-	if err != nil {
+func GetCategories(c *gin.Context) {
+	var list []Category
+	if err := DB.Find(&list).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
+	c.JSON(http.StatusOK, list)
+}
 
-	categories := []Category{}
-	for rows.Next() {
-		var cat Category
-		if err := rows.Scan(
-			&cat.ID,
-			&cat.NameEn, &cat.NameRu, &cat.NameDe,
-			&cat.Type, &cat.Entity,
-		); err != nil {
+func CreateCategory(c *gin.Context) {
+	var obj Category
+	if !bindJSON(c, &obj) {
+		return
+	}
+	if err := DB.Create(&obj).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, obj)
+}
+
+func UpdateCategory(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
+	}
+
+	var obj Category
+	if err := DB.First(&obj, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "category not found"})
+		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		}
-		categories = append(categories, cat)
-	}
-	c.JSON(http.StatusOK, categories)
-}
-
-func CreateCategoryHandler(c *gin.Context) {
-	var newCat Category
-	if err := c.ShouldBindJSON(&newCat); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	query := `
-		INSERT INTO categories (name_en, name_ru, name_de, type, entity)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id
-	`
-	err := Dbpool.QueryRow(context.Background(), query,
-		newCat.NameEn, newCat.NameRu, newCat.NameDe, newCat.Type, newCat.Entity,
-	).Scan(&newCat.ID)
-	if err != nil {
+
+	if !bindJSON(c, &obj) {
+		return
+	}
+	obj.ID = id
+
+	if err := DB.Save(&obj).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, newCat)
+	c.JSON(http.StatusOK, obj)
 }
 
-func UpdateCategoryHandler(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+func DeleteCategory(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
 		return
 	}
-	var updatedCat Category
-	if err := c.ShouldBindJSON(&updatedCat); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	updatedCat.ID = id
-	query := `
-		UPDATE categories
-		SET name_en = $1, name_ru = $2, name_de = $3, type = $4, entity = $5
-		WHERE id = $6
-	`
-	cmdTag, err := Dbpool.Exec(context.Background(), query,
-		updatedCat.NameEn, updatedCat.NameRu, updatedCat.NameDe,
-		updatedCat.Type, updatedCat.Entity, updatedCat.ID,
-	)
-	if err != nil || cmdTag.RowsAffected() == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
-		return
-	}
-	c.JSON(http.StatusOK, updatedCat)
-}
-
-func DeleteCategoryHandler(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
-	cmdTag, err := Dbpool.Exec(context.Background(), "DELETE FROM categories WHERE id=$1", id)
-	if err != nil || cmdTag.RowsAffected() == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Delete failed"})
+	if err := DB.Delete(&Category{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.Status(http.StatusNoContent)

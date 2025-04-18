@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"log"
 )
 
@@ -9,46 +8,50 @@ func GenerateMissingWordAudio() error {
 	if TtsClient == nil {
 		return nil
 	}
-	rows, err := Dbpool.Query(context.Background(),
-		`SELECT id, transcription_ru, transcription_en, transcription_de
-		   FROM words
-		  WHERE audio_ru IS NULL
-		     OR audio_en IS NULL
-		     OR audio_de IS NULL`)
-	if err != nil {
+
+	type batchWord struct {
+		ID              int
+		TranscriptionRu string
+		TranscriptionEn string
+		TranscriptionDe string
+	}
+
+	var list []batchWord
+
+	if err := DB.
+		Model(&Word{}).
+		Select("id, transcription_ru, transcription_en, transcription_de").
+		Where("audio_ru IS NULL OR audio_en IS NULL OR audio_de IS NULL").
+		Scan(&list).Error; err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var (
-			id                  int
-			ipaRu, ipaEn, ipaDe string
-		)
-		if err := rows.Scan(&id, &ipaRu, &ipaEn, &ipaDe); err != nil {
-			log.Printf("[batch] scan err: %v", err)
-			continue
-		}
+	for _, w := range list {
+
 		update := func(col, ipa, lang string) {
 			if ipa == "" {
 				return
 			}
 			wav, err := TtsClient.Synthesize(ipa, lang)
 			if err != nil {
-				log.Printf("[batch] synth id=%d lang=%s err=%v", id, lang, err)
+				log.Printf("[batch] synth id=%d lang=%s err=%v", w.ID, lang, err)
 				return
 			}
-			_, err = Dbpool.Exec(context.Background(),
-				`UPDATE words SET `+col+`=$1 WHERE id=$2`, wav, id)
-			if err != nil {
-				log.Printf("[batch] update id=%d err=%v", id, err)
+
+			if err := DB.
+				Model(&Word{}).
+				Where("id = ?", w.ID).
+				UpdateColumn(col, wav).Error; err != nil {
+				log.Printf("[batch] update id=%d err=%v", w.ID, err)
 			} else {
-				log.Printf("[batch] id=%d %s OK", id, lang)
+				log.Printf("[batch] id=%d %s OK", w.ID, lang)
 			}
 		}
-		update("audio_ru", ipaRu, "ru")
-		update("audio_en", ipaEn, "en")
-		update("audio_de", ipaDe, "de")
+
+		update("audio_ru", w.TranscriptionRu, "ru")
+		update("audio_en", w.TranscriptionEn, "en")
+		update("audio_de", w.TranscriptionDe, "de")
 	}
+
 	return nil
 }

@@ -1,176 +1,104 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-type ReadingText struct {
-	ID              int    `json:"id"`
-	TitleRu         string `json:"title_ru"`
-	TitleEn         string `json:"title_en"`
-	TitleDe         string `json:"title_de"`
-	ContentRu       string `json:"content_ru"`
-	ContentEn       string `json:"content_en"`
-	ContentDe       string `json:"content_de"`
-	TranscriptionRu string `json:"transcription_ru"`
-	TranscriptionEn string `json:"transcription_en"`
-	TranscriptionDe string `json:"transcription_de"`
-	AudioRu         []byte `json:"audio_ru"`
-	AudioEn         []byte `json:"audio_en"`
-	AudioDe         []byte `json:"audio_de"`
-	CategoryID      int    `json:"category_id"`
+// Text — модель текста с внешним ключом на Category
+// Ассоциация подтягивается через Preload в хендлерах
+type Text struct {
+	ID              int    `gorm:"primaryKey;column:id"        json:"id"`
+	TitleRu         string `gorm:"column:title_ru"             json:"title_ru"`
+	TitleEn         string `gorm:"column:title_en"             json:"title_en"`
+	TitleDe         string `gorm:"column:title_de"             json:"title_de"`
+	ContentRu       string `gorm:"column:content_ru"           json:"content_ru"`
+	ContentEn       string `gorm:"column:content_en"           json:"content_en"`
+	ContentDe       string `gorm:"column:content_de"           json:"content_de"`
+	TranscriptionRu string `gorm:"column:transcription_ru"     json:"transcription_ru"`
+	TranscriptionEn string `gorm:"column:transcription_en"     json:"transcription_en"`
+	TranscriptionDe string `gorm:"column:transcription_de"     json:"transcription_de"`
+	AudioRu         []byte `gorm:"column:audio_ru"             json:"audio_ru"`
+	AudioEn         []byte `gorm:"column:audio_en"             json:"audio_en"`
+	AudioDe         []byte `gorm:"column:audio_de"             json:"audio_de"`
+	CategoryID      int    `gorm:"column:category_id"          json:"category_id"`
 }
 
-func GetTextsHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		q := `
-			SELECT id,
-			       title_ru, title_en, title_de,
-			       content_ru, content_en, content_de,
-			       transcription_ru, transcription_en, transcription_de,
-			       audio_ru, audio_en, audio_de,
-			       category_id
-			FROM ` + table
-		rows, err := Dbpool.Query(context.Background(), q)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		defer rows.Close()
+func (Text) TableName() string { return "texts" }
 
-		var list []ReadingText
-		for rows.Next() {
-			var t ReadingText
-			if err := rows.Scan(
-				&t.ID,
-				&t.TitleRu, &t.TitleEn, &t.TitleDe,
-				&t.ContentRu, &t.ContentEn, &t.ContentDe,
-				&t.TranscriptionRu, &t.TranscriptionEn, &t.TranscriptionDe,
-				&t.AudioRu, &t.AudioEn, &t.AudioDe,
-				&t.CategoryID,
-			); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			list = append(list, t)
-		}
-		c.JSON(http.StatusOK, list)
-	}
-}
-
-func CreateTextHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var t ReadingText
-		if err := c.ShouldBindJSON(&t); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		q := `
-			INSERT INTO ` + table + ` (
-				title_ru, title_en, title_de,
-				content_ru, content_en, content_de,
-				transcription_ru, transcription_en, transcription_de,
-				audio_ru, audio_en, audio_de,
-				category_id
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-			RETURNING id`
-		err := Dbpool.QueryRow(context.Background(), q,
-			t.TitleRu, t.TitleEn, t.TitleDe,
-			t.ContentRu, t.ContentEn, t.ContentDe,
-			t.TranscriptionRu, t.TranscriptionEn, t.TranscriptionDe,
-			nil, nil, nil, // пока без аудио
-			t.CategoryID,
-		).Scan(&t.ID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		genAudioForText(table, &t)
-		c.JSON(http.StatusCreated, t)
-	}
-}
-
-func UpdateTextHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-			return
-		}
-		var t ReadingText
-		if err := c.ShouldBindJSON(&t); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		t.ID = id
-		q := `
-			UPDATE ` + table + ` SET
-				title_ru=$1, title_en=$2, title_de=$3,
-				content_ru=$4, content_en=$5, content_de=$6,
-				transcription_ru=$7, transcription_en=$8, transcription_de=$9,
-				audio_ru=$10, audio_en=$11, audio_de=$12,
-				category_id=$13
-			WHERE id=$14`
-		cmd, err := Dbpool.Exec(context.Background(), q,
-			t.TitleRu, t.TitleEn, t.TitleDe,
-			t.ContentRu, t.ContentEn, t.ContentDe,
-			t.TranscriptionRu, t.TranscriptionEn, t.TranscriptionDe,
-			t.AudioRu, t.AudioEn, t.AudioDe,
-			t.CategoryID, t.ID,
-		)
-		if err != nil || cmd.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "update failed"})
-			return
-		}
-		genAudioForText(table, &t)
-		c.JSON(http.StatusOK, t)
-	}
-}
-
-func DeleteTextHandler(table string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-			return
-		}
-		cmd, err := Dbpool.Exec(context.Background(),
-			"DELETE FROM "+table+" WHERE id=$1", id)
-		if err != nil || cmd.RowsAffected() == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
-			return
-		}
-		c.Status(http.StatusNoContent)
-	}
-}
-
-func genAudioForText(table string, t *ReadingText) {
-	if TtsClient == nil {
+func GetTexts(c *gin.Context) {
+	var list []Text
+	if err := DB.Find(&list).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	type rec struct {
-		ipa  string
-		code string
-		ptr  *[]byte
-		col  string
+	c.JSON(http.StatusOK, list)
+}
+
+func CreateText(c *gin.Context) {
+	var obj Text
+	if !bindJSON(c, &obj) {
+		return
 	}
-	langs := []rec{
-		{t.TranscriptionRu, "ru", &t.AudioRu, "audio_ru"},
-		{t.TranscriptionEn, "en", &t.AudioEn, "audio_en"},
-		{t.TranscriptionDe, "de", &t.AudioDe, "audio_de"},
+	obj.AudioRu, obj.AudioEn, obj.AudioDe = genAudioForText(&obj)
+	if err := DB.Create(&obj).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	for _, l := range langs {
-		if l.ipa == "" {
-			continue
+	DB.First(&obj, obj.ID)
+	c.JSON(http.StatusCreated, obj)
+}
+
+func UpdateText(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
+	}
+	var obj Text
+	if err := DB.First(&obj, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "text not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
-		if data, err := TtsClient.Synthesize(l.ipa, l.code); err == nil {
-			*l.ptr = data
-			_, _ = Dbpool.Exec(context.Background(),
-				`UPDATE `+table+` SET `+l.col+`=$1 WHERE id=$2`, data, t.ID)
-		}
+		return
 	}
+	var input Text
+	if !bindJSON(c, &input) {
+		return
+	}
+	obj = Text{
+		ID:              id,
+		TitleRu:         input.TitleRu,
+		TitleEn:         input.TitleEn,
+		TitleDe:         input.TitleDe,
+		ContentRu:       input.ContentRu,
+		ContentEn:       input.ContentEn,
+		ContentDe:       input.ContentDe,
+		TranscriptionRu: input.TranscriptionRu,
+		TranscriptionEn: input.TranscriptionEn,
+		TranscriptionDe: input.TranscriptionDe,
+		CategoryID:      input.CategoryID,
+	}
+	obj.AudioRu, obj.AudioEn, obj.AudioDe = genAudioForText(&obj)
+	if err := DB.Save(&obj).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	DB.First(&obj, id)
+	c.JSON(http.StatusOK, obj)
+}
+
+func DeleteText(c *gin.Context) {
+	id, ok := getID(c)
+	if !ok {
+		return
+	}
+	if err := DB.Delete(&Text{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
