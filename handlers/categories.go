@@ -8,12 +8,14 @@ import (
 )
 
 type Category struct {
-	ID     int    `gorm:"primaryKey;column:id" json:"id"`
-	NameEn string `gorm:"column:name_en"       json:"name_en"`
-	NameRu string `gorm:"column:name_ru"       json:"name_ru"`
-	NameDe string `gorm:"column:name_de"       json:"name_de"`
-	Type   string `gorm:"column:type"          json:"type"`
-	Entity string `gorm:"column:entity"        json:"entity"`
+	ID         int    `gorm:"primaryKey;column:id"    json:"id"`
+	NameEn     string `gorm:"column:name_en"          json:"name_en"`
+	NameRu     string `gorm:"column:name_ru"          json:"name_ru"`
+	NameDe     string `gorm:"column:name_de"          json:"name_de"`
+	TypeName   string `gorm:"column:type_name"        json:"type_name"`
+	TypeNameRu string `gorm:"column:type_name_ru"     json:"type_name_ru"`
+	TypeNameDe string `gorm:"column:type_name_de"     json:"type_name_de"`
+	Entity     string `gorm:"column:entity"           json:"entity"`
 }
 
 func GetCategories(c *gin.Context) {
