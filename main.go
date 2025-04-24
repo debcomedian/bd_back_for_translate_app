@@ -78,6 +78,24 @@ func main() {
 	router.PUT("/api/grammar/exceptions/:id", handlers.UpdateGrammarExceptions)
 	router.DELETE("/api/grammar/exceptions/:id", handlers.DeleteGrammarExceptions)
 
+	router.GET("/api/users", handlers.GetUsers)
+	router.POST("/api/users", handlers.CreateUser)
+	router.PUT("/api/users/:id", handlers.UpdateUser)
+	router.DELETE("/api/users/:id", handlers.DeleteUser)
+
+	router.GET("/api/users/:id/words/progress", handlers.GetUserWordProgress)
+	router.POST("/api/users/:id/words/:wordId/progress", handlers.CreateUserWordProgress)
+	router.PUT("/api/users/:id/words/:wordId/progress", handlers.UpdateUserWordProgress)
+	router.DELETE("/api/users/:id/words/:wordId/progress", handlers.DeleteUserWordProgress)
+
+	router.GET("/api/users/:id/texts/progress", handlers.GetUserTextProgress)
+	router.POST("/api/users/:id/texts/:textId/progress", handlers.UpsertUserTextProgress)
+	router.DELETE("/api/users/:id/texts/:textId/progress", handlers.DeleteUserTextProgress)
+
+	router.GET("/api/users/:id/grammar/progress", handlers.GetUserGrammarProgress)
+	router.POST("/api/users/:id/grammar/:grammarId/progress", handlers.UpsertUserGrammarProgress)
+	router.DELETE("/api/users/:id/grammar/:grammarId/progress", handlers.DeleteUserGrammarProgress)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
