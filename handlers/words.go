@@ -25,7 +25,6 @@ type Word struct {
 	TypeRu          string `gorm:"column:type_ru"            json:"type_ru"`
 	TypeEn          string `gorm:"column:type_en"            json:"type_en"`
 	TypeDe          string `gorm:"column:type_de"            json:"type_de"`
-	Status          string `gorm:"column:status"             json:"status"`
 }
 
 func (Word) TableName() string { return "words" }
@@ -39,16 +38,26 @@ func GetWords(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
+var sqlStateMap = map[string]struct {
+    Status  int
+    Message string
+}{
+    "23503": {Status: http.StatusBadRequest, Message: "foreign key violation"},
+    "23505": {Status: http.StatusConflict,    Message: "duplicate key"},
+}
+
 func CreateWord(c *gin.Context) {
 	var obj Word
 	if !bindJSON(c, &obj) {
 		return
 	}
+
 	obj.AudioRu, obj.AudioEn, obj.AudioDe = genAudioForWord(&obj)
-	if err := DB.Create(&obj).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+	if handleDBErr(c, DB.Create(&obj).Error) {
 		return
 	}
+
 	DB.First(&obj, obj.ID)
 	c.JSON(http.StatusCreated, obj)
 }
@@ -83,11 +92,9 @@ func UpdateWord(c *gin.Context) {
 		TypeRu:          input.TypeRu,
 		TypeEn:          input.TypeEn,
 		TypeDe:          input.TypeDe,
-		Status:          input.Status,
 	}
 	obj.AudioRu, obj.AudioEn, obj.AudioDe = genAudioForWord(&obj)
-	if err := DB.Save(&obj).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if handleDBErr(c, DB.Save(&obj).Error) {
 		return
 	}
 	DB.First(&obj, id)

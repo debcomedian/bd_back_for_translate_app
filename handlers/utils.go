@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgconn"
 )
 
 func getID(c *gin.Context) (int, bool) {
@@ -95,4 +98,31 @@ func genAudioForText(t *Text) (ru, en, de []byte) {
 		}
 	}
 	return ru, en, de
+}
+
+func handleDBErr(c *gin.Context, err error) bool {
+    if err == nil {
+        return false
+    }
+
+    var pgErr *pgconn.PgError
+    if errors.As(err, &pgErr) {
+        if info, ok := sqlStateMap[pgErr.Code]; ok {
+            c.JSON(info.Status, gin.H{"error": info.Message})
+        } else {
+            c.JSON(http.StatusBadRequest, gin.H{"error": pgErr.Message})
+        }
+        return true
+    }
+
+    msg := err.Error()
+    for code, info := range sqlStateMap {
+        if strings.Contains(msg, code) {
+            c.JSON(info.Status, gin.H{"error": info.Message})
+            return true
+        }
+    }
+
+    c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+    return true
 }

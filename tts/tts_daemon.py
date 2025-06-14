@@ -11,7 +11,6 @@ VOICE_MAP = {
     "en": "en-us",
     "de": "de",
     "ru": "ru",
-    # добавляйте при необходимости: "fr": "fr-fr", …
 }
 def speak_to_wav(text: str, lang: str) -> bytes:
     voice = VOICE_MAP.get(lang, lang)

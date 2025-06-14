@@ -3,3 +3,6 @@
 *.wav
 *.ogg
 *.exe
+*.zip
+/test
+/data

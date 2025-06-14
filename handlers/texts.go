@@ -43,8 +43,7 @@ func CreateText(c *gin.Context) {
 		return
 	}
 	obj.AudioRu, obj.AudioEn, obj.AudioDe = genAudioForText(&obj)
-	if err := DB.Create(&obj).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if handleDBErr(c, DB.Create(&obj).Error) {
 		return
 	}
 	DB.First(&obj, obj.ID)

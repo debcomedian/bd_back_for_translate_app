@@ -25,19 +25,19 @@ func main() {
 	database.Init()
 	handlers.DB = database.DB
 
-	handlers.SttClient, err = handlers.NewSTTClient("./stt/stt_daemon.py")
-	if err != nil {
-		log.Fatalf("Ошибка запуска нейросетевого процесса: %v", err)
-	}
+	//handlers.SttClient, err = handlers.NewSTTClient("./stt/stt_daemon.py")
+	// if err != nil {
+	// 	log.Fatalf("Ошибка запуска нейросетевого процесса: %v", err)
+	// }
 
-	handlers.TtsClient, err = handlers.NewTTSClient("./tts/tts_daemon.py")
-	if err != nil {
-		log.Fatalf("TTS daemon start failed: %v", err)
-	}
+	// handlers.TtsClient, err = handlers.NewTTSClient("./tts/tts_daemon.py")
+	// if err != nil {
+	// 	log.Fatalf("TTS daemon start failed: %v", err)
+	// }
 
-	if err := handlers.GenerateMissingWordAudio(); err != nil {
-		log.Printf("TTS batch error: %v", err)
-	}
+	// if err := handlers.GenerateMissingWordAudio(); err != nil {
+	// 	log.Printf("TTS batch error: %v", err)
+	// }
 
 	router := gin.Default()
 
@@ -88,13 +88,44 @@ func main() {
 	router.PUT("/api/users/:id/words/:wordId/progress", handlers.UpdateUserWordProgress)
 	router.DELETE("/api/users/:id/words/:wordId/progress", handlers.DeleteUserWordProgress)
 
-	router.GET("/api/users/:id/texts/progress", handlers.GetUserTextProgress)
-	router.POST("/api/users/:id/texts/:textId/progress", handlers.UpsertUserTextProgress)
-	router.DELETE("/api/users/:id/texts/:textId/progress", handlers.DeleteUserTextProgress)
+	router.GET("/api/text_tests", handlers.GetTextTests)
+	router.POST("/api/text_tests", handlers.CreateTextTest)
+	router.PUT("/api/text_tests/:id", handlers.UpdateTextTest)
+	router.DELETE("/api/text_tests/:id", handlers.DeleteTextTest)
+
+	router.GET("/api/text_questions", handlers.GetAllTextQuestions)
+	router.GET("/api/text_tests/:id/questions", handlers.GetTextQuestions)
+	router.POST("/api/text_tests/:id/questions", handlers.CreateTextQuestion)
+	router.PUT("/api/text_questions/:qid", handlers.UpdateTextQuestion)
+	router.DELETE("/api/text_questions/:qid", handlers.DeleteTextQuestion)
+
+	router.GET("/api/users/:id/text_tests/progress", handlers.GetUserTextTestProgress)
+	router.POST("/api/users/:id/text_tests/:testId/progress", handlers.UpsertUserTextTestProgress)
+	router.PUT("/api/users/:id/text_tests/:testId/progress", handlers.UpsertUserTextTestProgress)
+	router.DELETE("/api/users/:id/text_tests/:testId/progress", handlers.DeleteUserTextTestProgress)
 
 	router.GET("/api/users/:id/grammar/progress", handlers.GetUserGrammarProgress)
 	router.POST("/api/users/:id/grammar/:grammarId/progress", handlers.UpsertUserGrammarProgress)
 	router.DELETE("/api/users/:id/grammar/:grammarId/progress", handlers.DeleteUserGrammarProgress)
+
+	router.GET("/api/grammar_tests", handlers.GetGrammarTests)
+	router.GET("/api/grammar_tests/:id/questions", handlers.GetGrammarQuestions)
+	router.POST  ("/api/grammar_tests",        handlers.CreateGrammarTest)  // ← NEW
+	router.PUT   ("/api/grammar_tests/:id",    handlers.UpdateGrammarTest)  // ← NEW
+	router.DELETE("/api/grammar_tests/:id",    handlers.DeleteGrammarTest)  // ← NEW
+
+	router.POST("/api/grammar_tests/:id/questions", handlers.CreateGrammarQuestion)
+	router.GET("/api/grammar_questions", handlers.GetAllGrammarQuestions)
+	router.PUT("/api/grammar_questions/:qid", handlers.UpdateGrammarQuestion)
+	router.DELETE("/api/grammar_questions/:qid", handlers.DeleteGrammarQuestion)
+
+	router.GET ("/api/grammar_answers",                 handlers.GetAllGrammarAnswers)
+	router.GET ("/api/grammar_questions/:id/answers",   handlers.GetGrammarAnswers)
+	router.POST("/api/grammar_questions/:id/answers",   handlers.CreateGrammarAnswer)
+	router.PUT ("/api/grammar_answers/:aid",            handlers.UpdateGrammarAnswer)
+	router.DELETE("/api/grammar_answers/:aid",          handlers.DeleteGrammarAnswer)
+
+	router.POST("/api/users/:id/grammar_tests/:testId/progress",handlers.UpsertUserGrammarTestProgress)
 
 	port := os.Getenv("PORT")
 	if port == "" {

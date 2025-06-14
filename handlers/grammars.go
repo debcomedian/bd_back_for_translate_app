@@ -67,8 +67,7 @@ func CreateGrammars(c *gin.Context) {
 		return
 	}
 
-	if err := DB.Create(&g).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if handleDBErr(c, DB.Create(&g).Error) {
 		return
 	}
 
@@ -138,8 +137,7 @@ func CreateGrammarRules(c *gin.Context) {
 	if !bindJSON(c, &item) {
 		return
 	}
-	if err := DB.Create(&item).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if handleDBErr(c, DB.Create(&item).Error) {
 		return
 	}
 	c.JSON(http.StatusCreated, item)
@@ -204,8 +202,7 @@ func CreateGrammarExamples(c *gin.Context) {
 	if !bindJSON(c, &item) {
 		return
 	}
-	if err := DB.Create(&item).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if handleDBErr(c, DB.Create(&item).Error) {
 		return
 	}
 	c.JSON(http.StatusCreated, item)
@@ -268,8 +265,7 @@ func CreateGrammarExceptions(c *gin.Context) {
 	if !bindJSON(c, &item) {
 		return
 	}
-	if err := DB.Create(&item).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if handleDBErr(c, DB.Create(&item).Error) {
 		return
 	}
 	c.JSON(http.StatusCreated, item)
@@ -282,12 +278,7 @@ func UpdateGrammarExceptions(c *gin.Context) {
 	}
 
 	var item GrammarExceptions
-	if err := DB.First(&item, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
+	if handleDBErr(c, DB.Create(&item).Error) {
 		return
 	}
 
@@ -315,3 +306,4 @@ func DeleteGrammarExceptions(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
+
