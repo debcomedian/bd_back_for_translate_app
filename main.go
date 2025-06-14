@@ -1,15 +1,18 @@
 package main
 
 import (
+	// "fmt"
 	"log"
 	"os"
 
+	"bd_back_for_translate_app/auth"
 	"bd_back_for_translate_app/database"
 	"bd_back_for_translate_app/handlers"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/joho/godotenv"
+	// "golang.org/x/crypto/bcrypt"
 )
 
 var dbPool *pgxpool.Pool
@@ -24,6 +27,9 @@ func main() {
 
 	database.Init()
 	handlers.DB = database.DB
+
+	// h,_ := bcrypt.GenerateFromPassword([]byte("StrongP@ss"), bcrypt.DefaultCost)
+    // fmt.Println(string(h))
 
 	//handlers.SttClient, err = handlers.NewSTTClient("./stt/stt_daemon.py")
 	// if err != nil {
@@ -126,6 +132,14 @@ func main() {
 	router.DELETE("/api/grammar_answers/:aid",          handlers.DeleteGrammarAnswer)
 
 	router.POST("/api/users/:id/grammar_tests/:testId/progress",handlers.UpsertUserGrammarTestProgress)
+
+	handlers.AuthEndpoints(router.Group("/auth"))
+
+	adm := router.Group("/admin")
+    adm.Use(auth.Middleware("editor"))
+    handlers.AdminAPI(adm, database.DB)
+
+	router.StaticFile("/admin/panel", "./static/admin_panel.html")
 
 	port := os.Getenv("PORT")
 	if port == "" {
