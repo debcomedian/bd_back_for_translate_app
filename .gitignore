@@ -1,8 +1,7 @@
 .env
 *.sql
-*.wav
-*.ogg
 *.exe
 *.zip
 /test
-/data
+/info
+*.txt

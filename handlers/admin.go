@@ -46,7 +46,6 @@ func AdminAPI(router *gin.RouterGroup, db *gorm.DB) {
 	// универсальный CRUD для любой таблицы
 	rAny := func(c *gin.Context) {
 		tbl := c.Param("table")
-		// отключаем PrepareStmt, чтобы не кэшировать план под первую колонку
 		sess := db.Session(&gorm.Session{PrepareStmt: false})
 
 		switch c.Request.Method {
@@ -59,13 +58,11 @@ func AdminAPI(router *gin.RouterGroup, db *gorm.DB) {
 			c.JSON(http.StatusOK, rows)
 
 		case http.MethodPost:
-			// создание — JSON-объект или массив
 			var body map[string]any
 			if err := c.ShouldBindJSON(&body); err != nil {
 				c.AbortWithError(400, err)
 				return
 			}
-			// пропускаем id, чтобы SERIAL сам выставился
 			if err := sess.Table(tbl).
 				Omit("id").
 				Create(body).Error; err != nil {

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -29,75 +28,11 @@ func bindJSON(c *gin.Context, obj interface{}) bool {
 }
 
 func genAudioForWord(w *Word) (ru, en, de []byte) {
-	if TtsClient == nil {
 		return nil, nil, nil
-	}
-
-	type rec struct {
-		text string
-		lang string
-	}
-	langs := []rec{
-		{w.WordRu, "ru"},
-		{w.WordEn, "en"},
-		{w.WordDe, "de"},
-	}
-
-	for i, r := range langs {
-		if r.text == "" {
-			continue
-		}
-		wav, err := TtsClient.Synthesize(r.text, r.lang)
-		if err != nil {
-			log.Printf("[TTS] id=%d %s error: %v", w.ID, r.lang, err)
-			continue
-		}
-		switch i {
-		case 0:
-			ru = wav
-		case 1:
-			en = wav
-		case 2:
-			de = wav
-		}
-	}
-	return ru, en, de
 }
 
 func genAudioForText(t *Text) (ru, en, de []byte) {
-	if TtsClient == nil {
 		return nil, nil, nil
-	}
-
-	type rec struct {
-		text string
-		lang string
-	}
-	langs := []rec{
-		{t.ContentRu, "ru"},
-		{t.ContentEn, "en"},
-		{t.ContentDe, "de"},
-	}
-
-	for i, r := range langs {
-		if r.text == "" {
-			continue
-		}
-		wav, err := TtsClient.Synthesize(r.text, r.lang)
-		if err != nil {
-			log.Printf("[TTS] id=%d %s error: %v", t.ID, r.lang, err)
-			continue
-		}
-		switch i {
-		case 0:
-			ru = wav
-		case 1:
-			en = wav
-		case 2:
-			de = wav
-		}
-	}
-	return ru, en, de
 }
 
 func handleDBErr(c *gin.Context, err error) bool {
