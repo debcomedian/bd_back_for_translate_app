@@ -9,12 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-/* NewV1Router собирает только V1-контур backend.
- 	 Старый main.go остаётся как legacy-reference.
-	 V1 работает по offline-first модели:
-	 - backend отдает content snapshot;
-	 - клиент локально собирает session и считает progress;
-	 - backend принимает sync только от авторизованных пользователей. */
 func NewV1Router() *gin.Engine {
 	router := gin.Default()
 
@@ -22,12 +16,16 @@ func NewV1Router() *gin.Engine {
 
 	v1 := router.Group("/v1")
 
-	handlers.AuthEndpoints(v1.Group("/auth"))
+	authGroup := v1.Group("/auth")
+	{
+		authGroup.POST("/register", handlers.Register)
+		authGroup.POST("/login", handlers.Login)
+	}
 
-	v1.POST("/admin/login", notImplemented("TODO: admin login endpoint"))
+	v1.POST("/admin/login", handlers.AdminLogin)
 
 	admin := v1.Group("/admin")
-	admin.Use(auth.Middleware("editor"))
+	admin.Use(auth.Middleware("admin"))
 	{
 		admin.GET("/categories", handlers.GetCategories)
 		admin.POST("/categories", handlers.CreateCategory)
@@ -37,13 +35,13 @@ func NewV1Router() *gin.Engine {
 		admin.POST("/words", handlers.CreateWord)
 		admin.PUT("/words/:id", handlers.UpdateWord)
 
-		admin.POST("/words/import", notImplemented("TODO: import words CSV"))
-		admin.POST("/words/recalculate-meta", notImplemented("TODO: recalculate words_meta_base"))
+		admin.POST("/words/import", handlers.ImportWords)
+		admin.POST("/words/recalculate-meta", handlers.RecalculateWordMeta)
 	}
 
 	content := v1.Group("/content")
 	{
-		content.GET("/snapshot", notImplemented("TODO: return content snapshot for mobile client"))
+		content.GET("/snapshot", handlers.GetContentSnapshot)
 	}
 
 	user := v1.Group("")
@@ -51,14 +49,14 @@ func NewV1Router() *gin.Engine {
 	{
 		profile := user.Group("/profile")
 		{
-			profile.GET("", notImplemented("TODO: get user profile"))
-			profile.GET("/words/progress", notImplemented("TODO: get user word progress"))
+			profile.GET("", handlers.GetProfile)
+			profile.GET("/words/progress", handlers.GetUserWordProgress)
 		}
 
 		sync := user.Group("/sync")
 		{
-			sync.POST("/push", notImplemented("TODO: push offline events"))
-			sync.GET("/pull", notImplemented("TODO: pull remote updates"))
+			sync.POST("/push", handlers.SyncPush)
+			sync.GET("/pull", handlers.SyncPull)
 		}
 	}
 
@@ -70,13 +68,4 @@ func healthHandler(c *gin.Context) {
 		"status": "ok",
 		"scope":  "v1",
 	})
-}
-
-func notImplemented(message string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusNotImplemented, gin.H{
-			"error":   "not_implemented",
-			"message": message,
-		})
-	}
 }
