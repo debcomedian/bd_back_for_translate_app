@@ -2,6 +2,8 @@
 *.sql
 *.exe
 *.zip
+/docs
+/data
 /test
 /info
 *.txt
