@@ -1,0 +1,12 @@
+.git
+.idea
+.vscode
+bin
+dist
+tmp
+*.log
+*.exe
+*.dll
+*.so
+*.dylib
+node_modules
