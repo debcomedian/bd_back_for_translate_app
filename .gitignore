@@ -2,11 +2,12 @@
 *.sql
 *.exe
 *.zip
+*.md
+*.txt
 /docs
 /data
 /test
 /info
+/v1
+/web-admin/package-lock.json
 /web-admin/node_modules
-/v2
-*.md
-*.txt
