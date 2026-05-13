@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import type { Category, Word } from '../../types';
-import type { WordPayload } from '../../shared/api/words';
+import type { WordPayload } from '../../shared/api/directions';
 
 function normalize(initial?: Partial<Word>): WordPayload {
   return {

@@ -13,12 +13,12 @@ export function AppShell() {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="brand">Rugen Admin V1</div>
+        <div className="brand">Rugen Admin</div>
         <nav className="nav">
-          <NavLink to="/words">Слова</NavLink>
-          <NavLink to="/words/new">Создать слово</NavLink>
+          <NavLink to="/directions">Направления</NavLink>
           <NavLink to="/categories">Категории</NavLink>
-          <NavLink to="/import">Импорт CSV</NavLink>
+          <NavLink to="/import">Импорт и пересчёт</NavLink>
+          <NavLink to="/bank-quality">Bank quality</NavLink>
           <NavLink to="/snapshot">Snapshot</NavLink>
         </nav>
         <div className="sidebar-footer">

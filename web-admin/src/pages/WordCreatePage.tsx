@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchCategories } from '../shared/api/categories';
-import { createWord } from '../shared/api/words';
+import { createWord } from '../shared/api/directions';
 import { extractApiError } from '../shared/api/client';
 import { WordForm } from '../features/words/WordForm';
 import { PageHeader } from '../shared/ui/PageHeader';

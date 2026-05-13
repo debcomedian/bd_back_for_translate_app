@@ -5,8 +5,8 @@ export function LoginPage() {
     <div className="login-shell">
       <div className="card login-card stack">
         <div>
-          <h1 className="page-title">Rugen Admin V1</h1>
-          <p className="page-subtitle">Вход единственного администратора в контур управления словарным контентом.</p>
+          <h1 className="page-title">Rugen Admin</h1>
+          <p className="page-subtitle">Вход администратора в контур управления направленной словарной моделью.</p>
         </div>
         <LoginForm />
       </div>

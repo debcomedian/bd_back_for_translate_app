@@ -5,6 +5,16 @@ import { extractApiError } from '../shared/api/client';
 import { PageHeader } from '../shared/ui/PageHeader';
 import type { SnapshotResponse } from '../types';
 
+function CountCard({ title, value, hint }: { title: string; value: number; hint?: string }) {
+  return (
+    <div className="card stack stat-card">
+      <h2>{title}</h2>
+      <div className="stat-value">{value}</div>
+      {hint ? <div className="muted">{hint}</div> : null}
+    </div>
+  );
+}
+
 export function SnapshotPage() {
   const [data, setData] = useState<SnapshotResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +55,16 @@ export function SnapshotPage() {
 
   return (
     <div className="stack">
-      <PageHeader title="Snapshot" subtitle="Технический экран состояния контентного snapshot для mobile client." actions={<><button className="btn btn-secondary" onClick={() => void load()}>Обновить</button><button className="btn btn-primary" onClick={() => void handleRecalculate()} disabled={busy}>{busy ? 'Пересчёт...' : 'Пересчитать мету и обновить'}</button></>} />
+      <PageHeader
+        title="Snapshot"
+        subtitle="Полная offline-выгрузка новой направленной модели для mobile client."
+        actions={
+          <>
+            <button className="btn btn-secondary" onClick={() => void load()}>Обновить</button>
+            <button className="btn btn-primary" onClick={() => void handleRecalculate()} disabled={busy}>{busy ? 'Пересчёт...' : 'Пересчитать направления'}</button>
+          </>
+        }
+      />
       {error ? <div className="error">{error}</div> : null}
       {loading ? <div className="notice">Загрузка snapshot...</div> : null}
       <div className="card stack">
@@ -63,10 +82,14 @@ export function SnapshotPage() {
         )}
       </div>
       <div className="grid-4">
-        <div className="card stack"><h2>Категории</h2><div>{data?.categories.length ?? 0}</div></div>
-        <div className="card stack"><h2>Слова</h2><div>{data?.words.length ?? 0}</div></div>
-        <div className="card stack"><h2>Мета</h2><div>{data?.words_meta_base.length ?? 0}</div></div>
-        <div className="card stack"><h2>Синонимы</h2><div>{data?.word_synonyms.length ?? 0}</div></div>
+        <CountCard title="Языки" value={data?.languages.length ?? 0} />
+        <CountCard title="Категории" value={data?.categories.length ?? 0} />
+        <CountCard title="Концепты" value={data?.concepts.length ?? 0} hint="Смысловые карточки" />
+        <CountCard title="Формы" value={data?.forms.length ?? 0} hint="Языковые формы" />
+        <CountCard title="Concept meta" value={data?.concept_meta.length ?? 0} />
+        <CountCard title="Form meta" value={data?.form_meta.length ?? 0} />
+        <CountCard title="Синонимы" value={data?.form_synonyms.length ?? 0} />
+        <CountCard title="Направления" value={data?.directions.length ?? 0} hint="source → target" />
       </div>
     </div>
   );

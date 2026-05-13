@@ -15,7 +15,7 @@ function normalize(initial?: Partial<Category>): CategoryFormValue {
     name_ru: initial?.name_ru ?? '',
     name_en: initial?.name_en ?? '',
     name_de: initial?.name_de ?? '',
-    entity: initial?.entity ?? 'word',
+    entity: initial?.entity ?? 'concept',
   };
 }
 
@@ -46,6 +46,7 @@ export function CategoryForm({ initial, submitLabel, onSubmit }: { initial?: Par
         <div>
           <label className="label">Entity</label>
           <select className="select" value={form.entity} onChange={(e) => setForm((p) => ({ ...p, entity: e.target.value }))}>
+            <option value="concept">concept</option>
             <option value="word">word</option>
           </select>
         </div>
