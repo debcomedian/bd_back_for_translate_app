@@ -6,6 +6,7 @@ import (
 
 	"bd_back_for_translate_app/database"
 	"bd_back_for_translate_app/handlers"
+	"bd_back_for_translate_app/services"
 
 	"github.com/joho/godotenv"
 )
@@ -16,6 +17,11 @@ func main() {
 	}
 
 	database.Init()
+
+	if err := services.BootstrapContentIfNeeded(database.DB); err != nil {
+		log.Fatalf("Content bootstrap failed: %v", err)
+	}
+
 	handlers.DB = database.DB
 
 	router := NewV1Router()

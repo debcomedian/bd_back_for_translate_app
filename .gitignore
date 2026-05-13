@@ -6,4 +6,7 @@
 /data
 /test
 /info
+/web-admin/node_modules
+/v2
+*.md
 *.txt

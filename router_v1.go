@@ -11,7 +11,7 @@ import (
 
 func NewV1Router() *gin.Engine {
 	router := gin.Default()
-
+	router.Use(corsMiddleware())
 	router.GET("/health", healthHandler)
 
 	v1 := router.Group("/v1")
@@ -68,4 +68,32 @@ func healthHandler(c *gin.Context) {
 		"status": "ok",
 		"scope":  "v1",
 	})
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+
+		allowedOrigins := map[string]bool{
+			"http://localhost:5173":  true,
+			"http://127.0.0.1:5173": true,
+			"http://192.168.0.100:5173": true,
+		}
+
+		if allowedOrigins[origin] {
+			c.Header("Access-Control-Allow-Origin", origin)
+		}
+
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Max-Age", "86400")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }
