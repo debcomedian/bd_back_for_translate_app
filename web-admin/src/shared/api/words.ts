@@ -1,5 +1,4 @@
 import { api } from './client';
-import { normalizeWord } from './normalizers';
 import type { Word } from '../../types';
 
 export type WordPayload = {
@@ -16,16 +15,16 @@ export type WordPayload = {
 };
 
 export async function fetchWords(): Promise<Word[]> {
-  const { data } = await api.get<unknown[]>('/v1/admin/words');
-  return Array.isArray(data) ? data.map(normalizeWord) : [];
+  const { data } = await api.get<Word[]>('/admin/words');
+  return data;
 }
 
 export async function createWord(payload: WordPayload): Promise<Word> {
-  const { data } = await api.post<unknown>('/v1/admin/words', payload);
-  return normalizeWord(data);
+  const { data } = await api.post<Word>('/admin/words', payload);
+  return data;
 }
 
 export async function updateWord(id: number, payload: WordPayload): Promise<Word> {
-  const { data } = await api.put<unknown>(`/v1/admin/words/${id}`, payload);
-  return normalizeWord(data);
+  const { data } = await api.put<Word>(`/admin/words/${id}`, payload);
+  return data;
 }
