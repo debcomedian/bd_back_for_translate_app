@@ -44,6 +44,7 @@ export function WordEditPage() {
         <>
           <div className="card">
             <WordForm
+              key={`${word.id}-${word.updated_at ?? 'new'}`}
               initial={word}
               categories={categories}
               submitLabel="Сохранить изменения"
