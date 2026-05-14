@@ -31,15 +31,15 @@ type TargetSpec struct {
 }
 
 type TargetLemmaInfo struct {
-	Lemma            string              `json:"lemma"`
-	Key              string              `json:"key"`
-	LangCode         string              `json:"lang_code"`
-	HasGloss         bool                `json:"has_gloss"`
-	POS              []string            `json:"pos,omitempty"`
-	BridgeTranslations []string          `json:"bridge_translations,omitempty"`
-	PeerTranslations map[string][]string `json:"peer_translations,omitempty"`
+	Lemma              string              `json:"lemma"`
+	Key                string              `json:"key"`
+	LangCode           string              `json:"lang_code"`
+	HasGloss           bool                `json:"has_gloss"`
+	POS                []string            `json:"pos,omitempty"`
+	BridgeTranslations []string            `json:"bridge_translations,omitempty"`
+	PeerTranslations   map[string][]string `json:"peer_translations,omitempty"`
 
-	bridgeKeys       map[string]struct{}
+	bridgeKeys map[string]struct{}
 }
 
 type CandidateTargetState struct {
@@ -50,29 +50,29 @@ type CandidateTargetState struct {
 }
 
 type Stage31Candidate struct {
-	EnLemma     string                          `json:"en_lemma"`
-	Pos         string                          `json:"pos"`
-	Glosses     []string                        `json:"glosses,omitempty"`
-	Targets     map[string]CandidateTargetState `json:"targets"`
-	Status      string                          `json:"status"`
-	Layer       string                          `json:"layer"`
-	Confidence  string                          `json:"confidence"`
-	Flags       []string                        `json:"flags,omitempty"`
-	Source      string                          `json:"source"`
+	EnLemma    string                          `json:"en_lemma"`
+	Pos        string                          `json:"pos"`
+	Glosses    []string                        `json:"glosses,omitempty"`
+	Targets    map[string]CandidateTargetState `json:"targets"`
+	Status     string                          `json:"status"`
+	Layer      string                          `json:"layer"`
+	Confidence string                          `json:"confidence"`
+	Flags      []string                        `json:"flags,omitempty"`
+	Source     string                          `json:"source"`
 }
 
 type Stage31Stats struct {
-	EnglishInputPath  string         `json:"english_input_path"`
-	TargetInputPaths  map[string]string `json:"target_input_paths"`
+	EnglishInputPath string            `json:"english_input_path"`
+	TargetInputPaths map[string]string `json:"target_input_paths"`
 
-	EnglishScanned    int            `json:"english_scanned"`
-	WantedCounts      map[string]int `json:"wanted_counts"`
-	TargetScanned     map[string]int `json:"target_scanned"`
-	TargetMatched     map[string]int `json:"target_matched"`
+	EnglishScanned int            `json:"english_scanned"`
+	WantedCounts   map[string]int `json:"wanted_counts"`
+	TargetScanned  map[string]int `json:"target_scanned"`
+	TargetMatched  map[string]int `json:"target_matched"`
 
-	WrittenCore       int            `json:"written_core"`
-	WrittenExtendedAll int           `json:"written_extended_all"`
-	StatusCounts      map[string]int `json:"status_counts"`
+	WrittenCore        int            `json:"written_core"`
+	WrittenExtendedAll int            `json:"written_extended_all"`
+	StatusCounts       map[string]int `json:"status_counts"`
 
 	SkippedEmptyLine                 int `json:"skipped_empty_line"`
 	SkippedInvalidJSON               int `json:"skipped_invalid_json"`
@@ -84,17 +84,17 @@ type Stage31Stats struct {
 }
 
 type DebugSkippedEntry struct {
-	Reason              string                 `json:"reason"`
-	Word                string                 `json:"word"`
-	NormalizedWord      string                 `json:"normalized_word,omitempty"`
-	RawLangCode         string                 `json:"raw_lang_code,omitempty"`
-	RawPOS              string                 `json:"raw_pos,omitempty"`
-	CanonicalPOS        string                 `json:"canonical_pos,omitempty"`
-	Glosses             []string               `json:"glosses,omitempty"`
-	Translations        []Translation          `json:"translations,omitempty"`
-	RawTargets          map[string][]string    `json:"raw_targets,omitempty"`
-	States              map[string]CandidateTargetState `json:"states,omitempty"`
-	Note                string                 `json:"note,omitempty"`
+	Reason         string                          `json:"reason"`
+	Word           string                          `json:"word"`
+	NormalizedWord string                          `json:"normalized_word,omitempty"`
+	RawLangCode    string                          `json:"raw_lang_code,omitempty"`
+	RawPOS         string                          `json:"raw_pos,omitempty"`
+	CanonicalPOS   string                          `json:"canonical_pos,omitempty"`
+	Glosses        []string                        `json:"glosses,omitempty"`
+	Translations   []Translation                   `json:"translations,omitempty"`
+	RawTargets     map[string][]string             `json:"raw_targets,omitempty"`
+	States         map[string]CandidateTargetState `json:"states,omitempty"`
+	Note           string                          `json:"note,omitempty"`
 }
 
 func marshalLine(v any) ([]byte, error) {

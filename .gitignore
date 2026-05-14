@@ -6,8 +6,11 @@
 *.txt
 /docs
 /data
-/test
 /info
+/test/*.csv
+/test/*.json
+/test/repots
+/test/scripts
 /v1
 /web-admin/package-lock.json
 /web-admin/node_modules

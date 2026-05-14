@@ -60,7 +60,7 @@ func collectWantedTranslationKeys(cfg Config, specs []TargetSpec) (map[string]ma
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, scanned, fmt.Errorf("scan english input for wanted keys: %w", err)
+		return nil, scanned, fmt.Errorf("ошибка чтения английского входного файла для поиска ключей: %w", err)
 	}
 	return wanted, scanned, nil
 }
@@ -105,14 +105,14 @@ func scanTargetDump(spec TargetSpec, wanted map[string]struct{}, cfg Config) (ma
 		info, ok := result[key]
 		if !ok {
 			info = &TargetLemmaInfo{
-				Lemma:             normalizeTranslationWord(entry.Word),
-				Key:               key,
-				LangCode:          spec.LangCode,
-				HasGloss:          false,
-				POS:               []string{},
+				Lemma:              normalizeTranslationWord(entry.Word),
+				Key:                key,
+				LangCode:           spec.LangCode,
+				HasGloss:           false,
+				POS:                []string{},
 				BridgeTranslations: []string{},
-				PeerTranslations:  map[string][]string{},
-				bridgeKeys:        map[string]struct{}{},
+				PeerTranslations:   map[string][]string{},
+				bridgeKeys:         map[string]struct{}{},
 			}
 			result[key] = info
 		}
@@ -136,7 +136,7 @@ func scanTargetDump(spec TargetSpec, wanted map[string]struct{}, cfg Config) (ma
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, scanned, len(result), fmt.Errorf("scan target dump %s: %w", spec.InputPath, err)
+		return nil, scanned, len(result), fmt.Errorf("ошибка чтения целевого дампа %s: %w", spec.InputPath, err)
 	}
 
 	for _, info := range result {
@@ -161,7 +161,7 @@ func addPos(info *TargetLemmaInfo, pos string) {
 func openPossiblyGzipped(path string) (io.Reader, func() error, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open input file %s: %w", path, err)
+		return nil, nil, fmt.Errorf("не удалось открыть входной файл %s: %w", path, err)
 	}
 
 	closeFn := func() error { return f.Close() }
@@ -170,7 +170,7 @@ func openPossiblyGzipped(path string) (io.Reader, func() error, error) {
 		gz, err := gzip.NewReader(f)
 		if err != nil {
 			_ = f.Close()
-			return nil, nil, fmt.Errorf("open gzip reader %s: %w", path, err)
+			return nil, nil, fmt.Errorf("не удалось открыть gzip-поток для файла %s: %w", path, err)
 		}
 		closeFn = func() error {
 			_ = gz.Close()

@@ -1,9 +1,16 @@
-import { useEffect, useState } from 'react';
-import { createCategory, fetchCategories, updateCategory } from '../shared/api/categories';
-import { extractApiError } from '../shared/api/client';
-import { PageHeader } from '../shared/ui/PageHeader';
-import type { Category } from '../types';
-import { CategoryForm, type CategoryFormValue } from '../features/categories/CategoryForm';
+import { useEffect, useState } from "react";
+import {
+  createCategory,
+  fetchCategories,
+  updateCategory,
+} from "../shared/api/categories";
+import { extractApiError } from "../shared/api/client";
+import { PageHeader } from "../shared/ui/PageHeader";
+import type { Category } from "../types";
+import {
+  CategoryForm,
+  type CategoryFormValue,
+} from "../features/categories/CategoryForm";
 
 export function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -52,18 +59,33 @@ export function CategoriesPage() {
 
   return (
     <div className="stack">
-      <PageHeader title="Категории" subtitle="Управление категориями концептов для направленной словарной модели." actions={<button className="btn btn-secondary" onClick={() => void load()}>Обновить</button>} />
+      <PageHeader
+        title="Категории"
+        subtitle="Управление категориями концептов для направленной словарной модели."
+        actions={
+          <button className="btn btn-secondary" onClick={() => void load()}>
+            Обновить
+          </button>
+        }
+      />
       {error ? <div className="error">{error}</div> : null}
       {success ? <div className="success">{success}</div> : null}
       <div className="grid-2">
         <div className="card stack">
           <h2>Создать категорию</h2>
-          <CategoryForm submitLabel="Создать категорию" onSubmit={submitCreate} />
+          <CategoryForm
+            submitLabel="Создать категорию"
+            onSubmit={submitCreate}
+          />
         </div>
         <div className="card stack">
           <h2>Редактировать категорию</h2>
           {editing ? (
-            <CategoryForm initial={editing} submitLabel="Сохранить категорию" onSubmit={submitUpdate} />
+            <CategoryForm
+              initial={editing}
+              submitLabel="Сохранить категорию"
+              onSubmit={submitUpdate}
+            />
           ) : (
             <div className="notice">Выбери категорию из списка ниже.</div>
           )}
@@ -78,7 +100,7 @@ export function CategoriesPage() {
               <th>RU</th>
               <th>EN</th>
               <th>DE</th>
-              <th>Entity</th>
+              <th>Тип сущности</th>
               <th></th>
             </tr>
           </thead>
@@ -91,11 +113,20 @@ export function CategoriesPage() {
                 <td>{item.name_en}</td>
                 <td>{item.name_de}</td>
                 <td>{item.entity}</td>
-                <td><button className="btn btn-secondary" onClick={() => setEditing(item)}>Редактировать</button></td>
+                <td>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setEditing(item)}
+                  >
+                    Редактировать
+                  </button>
+                </td>
               </tr>
             ))}
             {categories.length === 0 ? (
-              <tr><td colSpan={7}>Категории пока не созданы.</td></tr>
+              <tr>
+                <td colSpan={7}>Категории пока не созданы.</td>
+              </tr>
             ) : null}
           </tbody>
         </table>

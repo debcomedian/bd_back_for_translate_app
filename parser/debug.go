@@ -30,7 +30,7 @@ func newDebugWriters(cfg Config) (*debugWriters, error) {
 	}
 
 	if err := os.MkdirAll(cfg.DebugDir, 0o755); err != nil {
-		return nil, fmt.Errorf("create debug dir: %w", err)
+		return nil, fmt.Errorf("не удалось создать каталог отладки: %w", err)
 	}
 
 	kinds := []string{
@@ -46,7 +46,7 @@ func newDebugWriters(cfg Config) (*debugWriters, error) {
 		path := filepath.Join(cfg.DebugDir, kind+".jsonl")
 		f, err := os.Create(path)
 		if err != nil {
-			return nil, fmt.Errorf("create debug file %s: %w", path, err)
+			return nil, fmt.Errorf("не удалось создать файл отладки %s: %w", path, err)
 		}
 		dw.files = append(dw.files, f)
 		dw.writers[kind] = bufio.NewWriterSize(f, 256*1024)

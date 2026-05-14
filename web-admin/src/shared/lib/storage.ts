@@ -1,4 +1,4 @@
-const ADMIN_TOKEN_KEY = 'rugen_admin_token';
+const ADMIN_TOKEN_KEY = "rugen_admin_token";
 
 export function getAdminToken(): string | null {
   return localStorage.getItem(ADMIN_TOKEN_KEY);

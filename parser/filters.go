@@ -16,10 +16,12 @@ var allowedPOS = map[string]string{
 	"adverb":    "adv",
 }
 
-var simpleENWordRE = regexp.MustCompile(`^[a-z][a-z'\-]*$`)
-var strictTranslationRE = regexp.MustCompile(`^[\p{L}\p{M}\-]+$`)
-var relaxedTranslationRE = regexp.MustCompile(`^[\p{L}\p{M}\-'\s]+$`)
-var splitParenRE = regexp.MustCompile(`\s*[\(\[][^\)\]]*[\)\]]\s*`)
+var (
+	simpleENWordRE       = regexp.MustCompile(`^[a-z][a-z'\-]*$`)
+	strictTranslationRE  = regexp.MustCompile(`^[\p{L}\p{M}\-]+$`)
+	relaxedTranslationRE = regexp.MustCompile(`^[\p{L}\p{M}\-'\s]+$`)
+	splitParenRE         = regexp.MustCompile(`\s*[\(\[][^\)\]]*[\)\]]\s*`)
+)
 
 func canonicalPOS(pos string) (string, bool) {
 	p := strings.ToLower(strings.TrimSpace(pos))

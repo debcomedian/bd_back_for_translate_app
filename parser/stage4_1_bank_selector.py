@@ -127,15 +127,15 @@ def decorate_row(row, *, selected_as=None, function_word=False, duplicate_of=Non
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Stage 4.1 bank selector for Rugen lexicon")
-    parser.add_argument("--input", required=True, help="Path to stage4_frequency_ranked.jsonl")
-    parser.add_argument("--active-output", required=True, help="Path to active_bank.jsonl")
-    parser.add_argument("--reserve-output", required=True, help="Path to reserve_bank.jsonl")
-    parser.add_argument("--function-output", required=True, help="Path to function_words.jsonl")
-    parser.add_argument("--stats", required=True, help="Path to stage4_1_bank_stats.json")
-    parser.add_argument("--function-words", required=True, help="Path to function_words_en.txt")
-    parser.add_argument("--active-limit", type=int, default=3000, help="Maximum size of active bank")
-    parser.add_argument("--top-preview", type=int, default=100, help="Preview size in stats")
+    parser = argparse.ArgumentParser(description="Этап 4.1: отбор словарного банка для Rugen")
+    parser.add_argument("--input", required=True, help="Путь к файлу stage4_frequency_ranked.jsonl")
+    parser.add_argument("--active-output", required=True, help="Путь к файлу active_bank.jsonl")
+    parser.add_argument("--reserve-output", required=True, help="Путь к файлу reserve_bank.jsonl")
+    parser.add_argument("--function-output", required=True, help="Путь к файлу function_words.jsonl")
+    parser.add_argument("--stats", required=True, help="Путь к файлу stage4_1_bank_stats.json")
+    parser.add_argument("--function-words", required=True, help="Путь к файлу function_words_en.txt")
+    parser.add_argument("--active-limit", type=int, default=3000, help="Максимальный размер active_bank")
+    parser.add_argument("--top-preview", type=int, default=100, help="Размер предварительного просмотра в статистике")
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -274,8 +274,8 @@ def main():
         json.dump(stats, f, ensure_ascii=False, indent=2)
 
     print(
-        f"done: input_rows={len(all_rows)}, unique_lemmas={len(by_lemma)}, "
-        f"active={len(active_rows)}, reserve={len(reserve_rows)}, function={len(function_rows)}"
+        f"Готово: входных_строк={len(all_rows)}, уникальных_лемм={len(by_lemma)}, "
+        f"активных={len(active_rows)}, резервных={len(reserve_rows)}, служебных={len(function_rows)}"
     )
 
 

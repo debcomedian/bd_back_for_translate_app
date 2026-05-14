@@ -13,13 +13,13 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, relying on environment variables")
+		log.Println("Файл .env не найден, используются переменные окружения системы")
 	}
 
 	database.Init()
 
 	if err := lexicon.BootstrapContentIfNeeded(database.DB); err != nil {
-		log.Fatalf("Lexicon bootstrap failed: %v", err)
+		log.Fatalf("Ошибка инициализации словарного контура: %v", err)
 	}
 
 	handlers.DB = database.DB
@@ -32,6 +32,6 @@ func main() {
 	}
 
 	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Failed to run server: %v", err)
+		log.Fatalf("Не удалось запустить HTTP-сервер: %v", err)
 	}
 }

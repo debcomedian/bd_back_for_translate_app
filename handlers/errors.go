@@ -18,9 +18,9 @@ var sqlStateMap = map[string]struct {
 	Status  int
 	Message string
 }{
-	"23502": {Status: http.StatusUnprocessableEntity, Message: "not null violation"},
-	"23503": {Status: http.StatusBadRequest, Message: "foreign key violation"},
-	"23505": {Status: http.StatusConflict, Message: "duplicate key"},
+	"23502": {Status: http.StatusUnprocessableEntity, Message: "Нарушение ограничения NOT NULL"},
+	"23503": {Status: http.StatusBadRequest, Message: "Нарушение внешнего ключа"},
+	"23505": {Status: http.StatusConflict, Message: "Дублирующее значение ключа"},
 }
 
 func writeError(c *gin.Context, status int, code string, message string) {

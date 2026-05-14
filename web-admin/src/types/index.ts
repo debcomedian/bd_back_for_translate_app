@@ -112,21 +112,21 @@ export type TrainingDirection = {
 };
 
 export type DirectionSortBy =
-  | 'direction_id'
-  | 'direction_code'
-  | 'source_value'
-  | 'target_value'
-  | 'source_lang_code'
-  | 'target_lang_code'
-  | 'category_name_ru'
-  | 'category_name_en'
-  | 'category_name_de'
-  | 'cefr_level'
-  | 'final_difficulty'
-  | 'is_active'
-  | 'created_at';
+  | "direction_id"
+  | "direction_code"
+  | "source_value"
+  | "target_value"
+  | "source_lang_code"
+  | "target_lang_code"
+  | "category_name_ru"
+  | "category_name_en"
+  | "category_name_de"
+  | "cefr_level"
+  | "final_difficulty"
+  | "is_active"
+  | "created_at";
 
-export type DirectionSortDir = 'asc' | 'desc';
+export type DirectionSortDir = "asc" | "desc";
 
 export type DirectionListPagination = {
   page: number;
@@ -220,10 +220,9 @@ export type AuthResponse = {
   };
 };
 
-// Legacy types kept only so old, currently unused editor files keep compiling.
 export type Word = {
   id: number;
-  lang_code: 'ru' | 'en' | 'de' | string;
+  lang_code: "ru" | "en" | "de" | string;
   word_ru?: string | null;
   word_en?: string | null;
   word_de?: string | null;

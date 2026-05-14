@@ -88,7 +88,7 @@ func UpdateWord(c *gin.Context) {
 	var obj models.Word
 	if err := DB.First(&obj, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			writeError(c, http.StatusNotFound, "not_found", "word not found")
+			writeError(c, http.StatusNotFound, "not_found", "Словарная запись не найдена")
 			return
 		}
 		handleDBErr(c, err)
@@ -134,18 +134,18 @@ func validateWordRequest(req wordRequest) string {
 	switch lang {
 	case "ru":
 		if req.WordRu == nil || strings.TrimSpace(*req.WordRu) == "" {
-			return "word_ru is required for lang_code=ru"
+			return "Для lang_code=ru необходимо указать word_ru"
 		}
 	case "en":
 		if req.WordEn == nil || strings.TrimSpace(*req.WordEn) == "" {
-			return "word_en is required for lang_code=en"
+			return "Для lang_code=en необходимо указать word_en"
 		}
 	case "de":
 		if req.WordDe == nil || strings.TrimSpace(*req.WordDe) == "" {
-			return "word_de is required for lang_code=de"
+			return "Для lang_code=de необходимо указать word_de"
 		}
 	default:
-		return "lang_code must be one of: ru, en, de"
+		return "lang_code должен иметь одно из значений: ru, en, de"
 	}
 	return ""
 }

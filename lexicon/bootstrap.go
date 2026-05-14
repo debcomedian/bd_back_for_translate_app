@@ -10,7 +10,7 @@ import (
 
 func BootstrapContentIfNeeded(db *gorm.DB) error {
 	if os.Getenv("AUTO_IMPORT_ACTIVE_BANK") != "true" {
-		log.Println("[lexicon bootstrap] AUTO_IMPORT_ACTIVE_BANK=false, skipping content bootstrap")
+		log.Println("[словарный контур] AUTO_IMPORT_ACTIVE_BANK=false, автоматический импорт контента пропущен")
 		return nil
 	}
 
@@ -20,7 +20,7 @@ func BootstrapContentIfNeeded(db *gorm.DB) error {
 		return err
 	}
 	if int(count) >= threshold {
-		log.Printf("[lexicon bootstrap] concepts=%d, threshold=%d, skipping import", count, threshold)
+		log.Printf("[словарный контур] смысловых карточек=%d, порог=%d, импорт не требуется", count, threshold)
 		return nil
 	}
 
@@ -32,7 +32,7 @@ func BootstrapContentIfNeeded(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("[lexicon bootstrap] imported: processed=%d concepts=%d forms=%d directions=%d snapshot=%d", report.Processed, report.Concepts, report.Forms, report.Directions, report.SnapshotVersionCode)
+	log.Printf("[словарный контур] импорт завершён: обработано=%d карточек=%d форм=%d направлений=%d snapshot=%d", report.Processed, report.Concepts, report.Forms, report.Directions, report.SnapshotVersionCode)
 	return nil
 }
 

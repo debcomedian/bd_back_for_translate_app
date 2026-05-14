@@ -44,12 +44,12 @@ def load_jsonl(path: Path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Stage 4 frequency ranking for Rugen lexicon")
-    parser.add_argument("--input", required=True, help="Path to stage3_1_extended_soft.jsonl")
-    parser.add_argument("--output", required=True, help="Path to stage4_frequency_ranked.jsonl")
-    parser.add_argument("--stats", required=True, help="Path to stage4_frequency_stats.json")
-    parser.add_argument("--lang", default="en", help="Language code for wordfreq, default: en")
-    parser.add_argument("--top-preview", type=int, default=100, help="How many top records to keep in stats preview")
+    parser = argparse.ArgumentParser(description="Этап 4: частотное ранжирование словарного контура Rugen")
+    parser.add_argument("--input", required=True, help="Путь к файлу stage3_1_extended_soft.jsonl")
+    parser.add_argument("--output", required=True, help="Путь к файлу stage4_frequency_ranked.jsonl")
+    parser.add_argument("--stats", required=True, help="Путь к файлу stage4_frequency_stats.json")
+    parser.add_argument("--lang", default="en", help="Код языка для wordfreq, по умолчанию: en")
+    parser.add_argument("--top-preview", type=int, default=100, help="Количество верхних записей для предварительного просмотра в статистике")
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -128,8 +128,8 @@ def main():
         json.dump(stats, f, ensure_ascii=False, indent=2)
 
     print(
-        f"done: processed={processed}, missing_zipf={missing_zipf}, "
-        f"output={output_path}, stats={stats_path}"
+        f"Готово: обработано={processed}, без_zipf={missing_zipf}, "
+        f"выходной_файл={output_path}, статистика={stats_path}"
     )
 
 

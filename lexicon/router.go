@@ -28,14 +28,13 @@ func RegisterRoutes(router *gin.Engine, db *gorm.DB, adminMiddleware gin.Handler
 		admin.GET("/categories", handler.GetCategories)
 		admin.POST("/categories", handler.CreateCategory)
 		admin.PUT("/categories/:id", handler.UpdateCategory)
-		
+
 		admin.GET("/concepts", handler.GetConcepts)
 		admin.GET("/forms", handler.GetForms)
 		admin.GET("/directions", handler.GetDirections)
-		
+
 		admin.GET("/content/bank-quality", handler.GetBankQualityReport)
 		admin.POST("/content/import-active-bank", handler.ImportActiveBank)
-		admin.POST("/content/rebuild-from-current", handler.RebuildFromCurrent)
 		admin.POST("/content/recalculate-directions", handler.RecalculateDirections)
 	}
 

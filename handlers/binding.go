@@ -11,7 +11,7 @@ var DB *gorm.DB
 
 func bindJSON(c *gin.Context, dst any) bool {
 	if err := c.ShouldBindJSON(dst); err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", err.Error())
+		writeError(c, http.StatusBadRequest, "bad_request", "Некорректное тело JSON-запроса")
 		return false
 	}
 	return true

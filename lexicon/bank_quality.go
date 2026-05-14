@@ -15,19 +15,19 @@ import (
 )
 
 type BankQualityReport struct {
-	GeneratedAt     time.Time                 `json:"generated_at"`
-	InputPath       string                    `json:"input_path"`
-	TotalRows       int                       `json:"total_rows"`
-	StatusCounts    map[string]int           `json:"status_counts"`
-	BucketCounts    map[string]int           `json:"bucket_counts"`
-	TargetCoverage  BankTargetCoverage       `json:"target_coverage"`
-	DirectionCounts map[string]int           `json:"direction_counts"`
-	IssueCounts     map[string]int           `json:"issue_counts"`
-	IssueSamples    map[string][]BankIssue   `json:"issue_samples"`
-	FirstRows       []BankRowPreview         `json:"first_rows"`
-	TopRiskRows     []BankRiskRow            `json:"top_risk_rows"`
-	Summary         BankQualitySummary       `json:"summary"`
-	Recommendations []string                  `json:"recommendations"`
+	GeneratedAt     time.Time              `json:"generated_at"`
+	InputPath       string                 `json:"input_path"`
+	TotalRows       int                    `json:"total_rows"`
+	StatusCounts    map[string]int         `json:"status_counts"`
+	BucketCounts    map[string]int         `json:"bucket_counts"`
+	TargetCoverage  BankTargetCoverage     `json:"target_coverage"`
+	DirectionCounts map[string]int         `json:"direction_counts"`
+	IssueCounts     map[string]int         `json:"issue_counts"`
+	IssueSamples    map[string][]BankIssue `json:"issue_samples"`
+	FirstRows       []BankRowPreview       `json:"first_rows"`
+	TopRiskRows     []BankRiskRow          `json:"top_risk_rows"`
+	Summary         BankQualitySummary     `json:"summary"`
+	Recommendations []string               `json:"recommendations"`
 }
 
 type BankTargetCoverage struct {
@@ -87,16 +87,16 @@ type BankRiskRow struct {
 }
 
 type BankQualityOptions struct {
-	SampleLimit            int      `json:"sample_limit"`
-	FirstRowsLimit         int      `json:"first_rows_limit"`
-	TopRiskRowsLimit       int      `json:"top_risk_rows_limit"`
-	RequiredTargetLangs    []string `json:"required_target_langs"`
-	MaxSynonymsPerLang     int      `json:"max_synonyms_per_lang"`
-	MaxHalfValidatedPct    float64  `json:"max_half_validated_pct"`
-	MaxTailPct             float64  `json:"max_tail_pct"`
-	MinFullTrilingualPct   float64  `json:"min_full_trilingual_pct"`
-	AllowUnsafeCandidates  bool     `json:"allow_unsafe_candidates"`
-	AllowOneLetterENLemma  bool     `json:"allow_one_letter_en_lemma"`
+	SampleLimit           int      `json:"sample_limit"`
+	FirstRowsLimit        int      `json:"first_rows_limit"`
+	TopRiskRowsLimit      int      `json:"top_risk_rows_limit"`
+	RequiredTargetLangs   []string `json:"required_target_langs"`
+	MaxSynonymsPerLang    int      `json:"max_synonyms_per_lang"`
+	MaxHalfValidatedPct   float64  `json:"max_half_validated_pct"`
+	MaxTailPct            float64  `json:"max_tail_pct"`
+	MinFullTrilingualPct  float64  `json:"min_full_trilingual_pct"`
+	AllowUnsafeCandidates bool     `json:"allow_unsafe_candidates"`
+	AllowOneLetterENLemma bool     `json:"allow_one_letter_en_lemma"`
 }
 
 func DefaultBankQualityOptions() BankQualityOptions {
@@ -241,37 +241,37 @@ func AuditActiveBank(inputPath string, reader io.Reader, opts BankQualityOptions
 
 		for _, lang := range opts.RequiredTargetLangs {
 			if len(targetValues(obj, lang)) == 0 {
-				issue("missing_target_"+lang, lang, "", "required target language is empty", 5)
+				issue("missing_target_"+lang, lang, "", "обязательный целевой язык отсутствует", 5)
 			}
 		}
 
 		if status == "half_validated" {
-			issue("half_validated", "", "", "row is only partially validated", 2)
+			issue("half_validated", "", "", "строка прошла только частичную валидацию", 2)
 		}
 		if status == "unknown" || status == "candidate_only" {
-			issue("weak_status", "", "", "row has weak validation status", 4)
+			issue("weak_status", "", "", "строка имеет слабый статус валидации", 4)
 		}
 		if bucket == "tail" || bucket == "unknown" {
-			issue("weak_frequency_bucket", "en", lemma, "row belongs to tail/unknown frequency bucket", 1)
+			issue("weak_frequency_bucket", "en", lemma, "строка относится к хвостовой или неизвестной частотной группе", 1)
 		}
 		if !opts.AllowOneLetterENLemma && utf8.RuneCountInString(strings.TrimSpace(lemma)) <= 1 {
-			issue("suspicious_short_lemma", "en", lemma, "english lemma is one-letter or empty", 3)
+			issue("suspicious_short_lemma", "en", lemma, "английская лемма отсутствует или состоит из одного символа", 3)
 		}
 		if lemma != "" && !safeTokenPattern.MatchString(lemma) {
-			issue("suspicious_lemma_chars", "en", lemma, "english lemma contains suspicious characters", 2)
+			issue("suspicious_lemma_chars", "en", lemma, "английская лемма содержит подозрительные символы", 2)
 		}
 
 		for _, lang := range []string{"ru", "de"} {
 			values := targetValues(obj, lang)
 			if len(values) > opts.MaxSynonymsPerLang {
-				issue("too_many_candidates_"+lang, lang, fmt.Sprintf("%d", len(values)), "too many candidates for one language", 2)
+				issue("too_many_candidates_"+lang, lang, fmt.Sprintf("%d", len(values)), "слишком много кандидатов для одного языка", 2)
 			}
 			for _, value := range values {
 				if !opts.AllowUnsafeCandidates && unsafeCandidate(value) {
-					issue("unsafe_candidate", lang, value, "candidate contains unsafe/profanity register marker", 8)
+					issue("unsafe_candidate", lang, value, "кандидат содержит маркер небезопасной или обсценной лексики", 8)
 				}
 				if lang == "ru" && looksLikeAccentVariant(value) {
-					issue("accent_variant_in_candidates", lang, value, "candidate looks like accent-mark duplicate; should be normalized before synonyms", 1)
+					issue("accent_variant_in_candidates", lang, value, "кандидат похож на дубль с ударением; перед сохранением синонимов требуется нормализация", 1)
 				}
 			}
 		}
@@ -330,7 +330,7 @@ func AuditActiveBank(inputPath string, reader io.Reader, opts BankQualityOptions
 func buildQualitySummary(report *BankQualityReport, rowsWithIssues int, opts BankQualityOptions) BankQualitySummary {
 	total := float64(report.TotalRows)
 	if total <= 0 {
-		return BankQualitySummary{QualityGatePassed: false, QualityGateReason: "active_bank is empty"}
+		return BankQualitySummary{QualityGatePassed: false, QualityGateReason: "active_bank пустой"}
 	}
 
 	s := BankQualitySummary{
@@ -340,21 +340,21 @@ func buildQualitySummary(report *BankQualityReport, rowsWithIssues int, opts Ban
 		FullTrilingualPercent:     percent(report.TargetCoverage.FullTrilingual, report.TotalRows),
 		RowsWithIssuesPercent:     percent(rowsWithIssues, report.TotalRows),
 		QualityGatePassed:         true,
-		QualityGateReason:         "passed",
+		QualityGateReason:         "проверка пройдена",
 	}
 
 	var reasons []string
 	if s.HalfValidatedPercent > opts.MaxHalfValidatedPct {
-		reasons = append(reasons, fmt.Sprintf("half_validated %.2f%% > %.2f%%", s.HalfValidatedPercent, opts.MaxHalfValidatedPct))
+		reasons = append(reasons, fmt.Sprintf("доля half_validated %.2f%% > %.2f%%", s.HalfValidatedPercent, opts.MaxHalfValidatedPct))
 	}
 	if s.TailPercent > opts.MaxTailPct {
-		reasons = append(reasons, fmt.Sprintf("tail %.2f%% > %.2f%%", s.TailPercent, opts.MaxTailPct))
+		reasons = append(reasons, fmt.Sprintf("доля tail %.2f%% > %.2f%%", s.TailPercent, opts.MaxTailPct))
 	}
 	if s.FullTrilingualPercent < opts.MinFullTrilingualPct {
-		reasons = append(reasons, fmt.Sprintf("full_trilingual %.2f%% < %.2f%%", s.FullTrilingualPercent, opts.MinFullTrilingualPct))
+		reasons = append(reasons, fmt.Sprintf("доля full_trilingual %.2f%% < %.2f%%", s.FullTrilingualPercent, opts.MinFullTrilingualPct))
 	}
 	if report.IssueCounts["unsafe_candidate"] > 0 && !opts.AllowUnsafeCandidates {
-		reasons = append(reasons, fmt.Sprintf("unsafe_candidate count=%d", report.IssueCounts["unsafe_candidate"]))
+		reasons = append(reasons, fmt.Sprintf("количество unsafe_candidate=%d", report.IssueCounts["unsafe_candidate"]))
 	}
 
 	if len(reasons) > 0 {
@@ -367,22 +367,22 @@ func buildQualitySummary(report *BankQualityReport, rowsWithIssues int, opts Ban
 func buildQualityRecommendations(report *BankQualityReport, opts BankQualityOptions) []string {
 	recs := make([]string, 0, 8)
 	if report.StatusCounts["half_validated"] > 0 {
-		recs = append(recs, "Split active_bank into demo bank and clean learning bank; do not mix half_validated rows into first learning levels.")
+		recs = append(recs, "Разделить active_bank на демонстрационный банк и чистый учебный банк; не смешивать half_validated-строки с первыми учебными уровнями.")
 	}
 	if report.BucketCounts["tail"] > 0 {
-		recs = append(recs, "Add level filter by frequency bucket: A1/A2 should prefer core_high, core_mid and selected core_low rows.")
+		recs = append(recs, "Добавить фильтр уровня по частотной группе: для A1/A2 приоритетны core_high, core_mid и выбранные строки core_low.")
 	}
 	if report.TargetCoverage.FullTrilingual < report.TotalRows {
-		recs = append(recs, "Keep partial concepts, but mark missing target languages explicitly and do not generate absent language directions.")
+		recs = append(recs, "Сохранять неполные смысловые карточки, но явно помечать отсутствующие целевые языки и не создавать направления для отсутствующих языковых форм.")
 	}
 	if report.IssueCounts["unsafe_candidate"] > 0 {
-		recs = append(recs, "Add register/safety filter before importing synonyms into production learning content.")
+		recs = append(recs, "Добавить фильтр регистра и безопасности перед импортом синонимов в учебный контент.")
 	}
 	if report.IssueCounts["too_many_candidates_ru"] > 0 || report.IssueCounts["too_many_candidates_de"] > 0 {
-		recs = append(recs, "Cap synonym candidates per form and separate true synonyms from broad semantic relatives.")
+		recs = append(recs, "Ограничить число кандидатов-синонимов для одной формы и отделить точные синонимы от широких смысловых соответствий.")
 	}
 	if report.IssueCounts["accent_variant_in_candidates"] > 0 {
-		recs = append(recs, "Normalize accent-mark variants before saving synonyms; store pronunciation/accent separately if needed.")
+		recs = append(recs, "Нормализовать варианты с ударениями до сохранения синонимов; произношение или ударение хранить отдельно при необходимости.")
 	}
 	return recs
 }
@@ -605,26 +605,26 @@ func round4(value float64) float64 {
 
 func (r *BankQualityReport) WriteMarkdown(path string) error {
 	var b strings.Builder
-	b.WriteString("# Active Bank Quality Audit\n\n")
-	b.WriteString(fmt.Sprintf("Generated at: `%s`\n\n", r.GeneratedAt.Format(time.RFC3339)))
-	b.WriteString(fmt.Sprintf("Input: `%s`\n\n", r.InputPath))
-	b.WriteString("## Summary\n\n")
-	b.WriteString(fmt.Sprintf("- Total rows: `%d`\n", r.TotalRows))
+	b.WriteString("# Аудит качества active_bank\n\n")
+	b.WriteString(fmt.Sprintf("Сформировано: `%s`\n\n", r.GeneratedAt.Format(time.RFC3339)))
+	b.WriteString(fmt.Sprintf("Входной файл: `%s`\n\n", r.InputPath))
+	b.WriteString("## Сводка\n\n")
+	b.WriteString(fmt.Sprintf("- Всего строк: `%d`\n", r.TotalRows))
 	b.WriteString(fmt.Sprintf("- strict_validated_all: `%.2f%%`\n", r.Summary.StrictValidatedAllPercent))
 	b.WriteString(fmt.Sprintf("- half_validated: `%.2f%%`\n", r.Summary.HalfValidatedPercent))
 	b.WriteString(fmt.Sprintf("- tail: `%.2f%%`\n", r.Summary.TailPercent))
 	b.WriteString(fmt.Sprintf("- full_trilingual: `%.2f%%`\n", r.Summary.FullTrilingualPercent))
-	b.WriteString(fmt.Sprintf("- rows with issues: `%.2f%%`\n", r.Summary.RowsWithIssuesPercent))
-	b.WriteString(fmt.Sprintf("- quality gate passed: `%t`\n", r.Summary.QualityGatePassed))
-	b.WriteString(fmt.Sprintf("- quality gate reason: `%s`\n\n", r.Summary.QualityGateReason))
+	b.WriteString(fmt.Sprintf("- строк с проблемами: `%.2f%%`\n", r.Summary.RowsWithIssuesPercent))
+	b.WriteString(fmt.Sprintf("- проверка качества пройдена: `%t`\n", r.Summary.QualityGatePassed))
+	b.WriteString(fmt.Sprintf("- причина результата проверки: `%s`\n\n", r.Summary.QualityGateReason))
 
-	writeMapTable(&b, "Status counts", r.StatusCounts)
-	writeMapTable(&b, "Frequency bucket counts", r.BucketCounts)
-	writeMapTable(&b, "Direction counts", r.DirectionCounts)
-	writeMapTable(&b, "Issue counts", r.IssueCounts)
+	writeMapTable(&b, "Статусы записей", r.StatusCounts)
+	writeMapTable(&b, "Частотные группы", r.BucketCounts)
+	writeMapTable(&b, "Направления заданий", r.DirectionCounts)
+	writeMapTable(&b, "Найденные проблемы", r.IssueCounts)
 
-	b.WriteString("## Target coverage\n\n")
-	b.WriteString("| Metric | Count |\n|---|---:|\n")
+	b.WriteString("## Покрытие целевых языков\n\n")
+	b.WriteString("| Метрика | Количество |\n|---|---:|\n")
 	b.WriteString(fmt.Sprintf("| has_en | %d |\n", r.TargetCoverage.HasEN))
 	b.WriteString(fmt.Sprintf("| has_ru | %d |\n", r.TargetCoverage.HasRU))
 	b.WriteString(fmt.Sprintf("| has_de | %d |\n", r.TargetCoverage.HasDE))
@@ -634,8 +634,8 @@ func (r *BankQualityReport) WriteMarkdown(path string) error {
 	b.WriteString(fmt.Sprintf("| en_only | %d |\n", r.TargetCoverage.ENOnly))
 	b.WriteString(fmt.Sprintf("| other_partial | %d |\n\n", r.TargetCoverage.OtherPartial))
 
-	b.WriteString("## Top risk rows\n\n")
-	b.WriteString("| Line | Lemma | POS | Status | Bucket | Risk | Labels | RU | DE |\n|---:|---|---|---|---|---:|---|---|---|\n")
+	b.WriteString("## Строки с наибольшим риском\n\n")
+	b.WriteString("| Строка | Лемма | Часть речи | Статус | Частотная группа | Риск | Метки | RU | DE |\n|---:|---|---|---|---|---:|---|---|---|\n")
 	for _, row := range r.TopRiskRows {
 		b.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %s | %d | %s | %s | %s |\n",
 			row.Line, md(row.Lemma), md(row.POS), md(row.Status), md(row.Bucket), row.RiskScore, md(strings.Join(row.RiskLabels, ", ")), md(row.RU), md(row.DE)))
@@ -643,7 +643,7 @@ func (r *BankQualityReport) WriteMarkdown(path string) error {
 	b.WriteString("\n")
 
 	if len(r.Recommendations) > 0 {
-		b.WriteString("## Recommendations\n\n")
+		b.WriteString("## Рекомендации\n\n")
 		for _, rec := range r.Recommendations {
 			b.WriteString("- " + rec + "\n")
 		}
@@ -655,7 +655,7 @@ func (r *BankQualityReport) WriteMarkdown(path string) error {
 
 func writeMapTable(b *strings.Builder, title string, m map[string]int) {
 	b.WriteString("## " + title + "\n\n")
-	b.WriteString("| Name | Count |\n|---|---:|\n")
+	b.WriteString("| Название | Количество |\n|---|---:|\n")
 	keys := make([]string, 0, len(m))
 	for key := range m {
 		keys = append(keys, key)

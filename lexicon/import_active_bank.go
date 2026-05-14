@@ -9,8 +9,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"bd_back_for_translate_app/services"
-
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -43,7 +41,7 @@ type formInput struct {
 func ImportActiveBank(db *gorm.DB, inputPath string) (*ActiveBankImportReport, error) {
 	file, err := os.Open(inputPath)
 	if err != nil {
-		return nil, fmt.Errorf("open active bank: %w", err)
+		return nil, fmt.Errorf("не удалось открыть active_bank: %w", err)
 	}
 	defer file.Close()
 
@@ -77,7 +75,7 @@ func ImportActiveBank(db *gorm.DB, inputPath string) (*ActiveBankImportReport, e
 		if line == "" {
 			continue
 		}
-		var rec services.ActiveBankRecord
+		var rec ActiveBankRecord
 		if err := json.Unmarshal([]byte(line), &rec); err != nil {
 			report.SkippedInvalid++
 			continue
@@ -133,7 +131,7 @@ func ImportActiveBank(db *gorm.DB, inputPath string) (*ActiveBankImportReport, e
 	}
 	if err := scanner.Err(); err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("scan active bank: %w", err)
+		return nil, fmt.Errorf("ошибка чтения active_bank: %w", err)
 	}
 
 	metaReport, err := recalculateDirectionMetaTx(tx)
@@ -172,7 +170,7 @@ func seedKnownLanguages(tx *gorm.DB) error {
 	return nil
 }
 
-func buildFormsFromActiveBank(rec services.ActiveBankRecord) []formInput {
+func buildFormsFromActiveBank(rec ActiveBankRecord) []formInput {
 	items := []formInput{}
 	en := normalizeLexeme(rec.EnLemma)
 	if en != "" {
@@ -210,13 +208,13 @@ func createFormsFromInput(tx *gorm.DB, conceptID uint64, inputs []formInput) ([]
 func ensureLanguage(tx *gorm.DB, code string) error {
 	code = NormalizeValue(code)
 	if code == "" {
-		return fmt.Errorf("empty language code")
+		return fmt.Errorf("код языка не указан")
 	}
 	obj := Language{Code: code, NameRu: code, NameEn: code, IsActive: true}
 	return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&obj).Error
 }
 
-func createFormMetaFromActiveBank(tx *gorm.DB, forms []LexicalForm, rec services.ActiveBankRecord) (int, error) {
+func createFormMetaFromActiveBank(tx *gorm.DB, forms []LexicalForm, rec ActiveBankRecord) (int, error) {
 	created := 0
 	for _, form := range forms {
 		meta := LexicalFormMeta{FormID: form.ID, Lemma: strPtrIfNotEmpty(form.Value), LemmaChars: utf8.RuneCountInString(form.Value), TokenCount: countTokens(form.Value), CalculatedAt: time.Now()}
@@ -242,7 +240,7 @@ func createFormMetaFromActiveBank(tx *gorm.DB, forms []LexicalForm, rec services
 	return created, nil
 }
 
-func createConceptMetaFromActiveBank(tx *gorm.DB, conceptID uint64, forms []LexicalForm, rec services.ActiveBankRecord) error {
+func createConceptMetaFromActiveBank(tx *gorm.DB, conceptID uint64, forms []LexicalForm, rec ActiveBankRecord) error {
 	maxChars := maxFormLength(forms)
 	meta := LexicalConceptMeta{ConceptID: conceptID, CefrLevel: strPtrIfNotEmpty(seedCEFRFromBucket(rec.Frequency.EN.Bucket)), ImportanceScore: seedImportanceFromZipf(rec.Frequency.EN.Zipf), FreqBucket: bucketLabelToInt(rec.Frequency.EN.Bucket), LengthChars: maxChars, BaseDifficulty: seedBaseDifficulty(rec.Frequency.EN.Zipf, maxChars, rec.Status), MetaVersion: 1, CalculatedAt: time.Now()}
 	if meta.BaseDifficulty == 0 {
@@ -251,7 +249,7 @@ func createConceptMetaFromActiveBank(tx *gorm.DB, conceptID uint64, forms []Lexi
 	return tx.Create(&meta).Error
 }
 
-func createSynonymsFromActiveBank(tx *gorm.DB, forms []LexicalForm, rec services.ActiveBankRecord) (int, error) {
+func createSynonymsFromActiveBank(tx *gorm.DB, forms []LexicalForm, rec ActiveBankRecord) (int, error) {
 	formsByLang := map[string]LexicalForm{}
 	for _, form := range forms {
 		formsByLang[form.LangCode] = form
@@ -279,7 +277,7 @@ func createSynonymsFromActiveBank(tx *gorm.DB, forms []LexicalForm, rec services
 	return created, nil
 }
 
-func collectSynonyms(primary string, state services.ActiveBankTargetState) []string {
+func collectSynonyms(primary string, state ActiveBankTargetState) []string {
 	seen := map[string]struct{}{}
 	out := []string{}
 	add := func(value string) {
@@ -303,7 +301,7 @@ func collectSynonyms(primary string, state services.ActiveBankTargetState) []str
 	return out
 }
 
-func choosePrimaryTarget(state services.ActiveBankTargetState) string {
+func choosePrimaryTarget(state ActiveBankTargetState) string {
 	for _, group := range [][]string{state.StrictValidated, state.SoftValidated, state.Completed, state.FromEnglish} {
 		for _, value := range group {
 			if normalized := normalizeLexeme(value); normalized != "" {

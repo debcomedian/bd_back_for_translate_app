@@ -30,7 +30,7 @@ type importRowError struct {
 func ImportWords(c *gin.Context) {
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
-		writeError(c, http.StatusBadRequest, "bad_request", "multipart field 'file' is required")
+		writeError(c, http.StatusBadRequest, "bad_request", "Необходимо передать multipart-поле 'file'")
 		return
 	}
 	defer file.Close()
@@ -40,7 +40,7 @@ func ImportWords(c *gin.Context) {
 
 	header, err := reader.Read()
 	if err != nil {
-		writeError(c, http.StatusBadRequest, "bad_csv", "failed to read csv header")
+		writeError(c, http.StatusBadRequest, "bad_csv", "Не удалось прочитать заголовок CSV")
 		return
 	}
 

@@ -28,22 +28,12 @@ type adminLoginResponse struct {
 	Login string `json:"login"`
 }
 
-// AdminLogin — V1 login для единственного администратора.
-//
-// Логика:
-//  1. Если в таблице admin_users есть активная запись, пробуем логин через БД.
-//  2. Если записи нет — fallback на singleton-admin из env.
-//
-// Переменные окружения для fallback:
-//   - ADMIN_LOGIN      (по умолчанию "admin")
-//   - ADMIN_PASSWORD   (по умолчанию "admin")
-//   - ADMIN_HASH       (bcrypt-хеш, приоритетнее ADMIN_PASSWORD)
 func AdminLogin(c *gin.Context) {
 	var req adminLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "bad_request",
-			"message": err.Error(),
+			"message": "Некорректное тело JSON-запроса",
 		})
 		return
 	}
@@ -52,12 +42,11 @@ func AdminLogin(c *gin.Context) {
 	if login == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "bad_request",
-			"message": "login is required",
+			"message": "Логин не указан",
 		})
 		return
 	}
 
-	// 1. Пытаемся авторизовать через admin_users.
 	if DB != nil {
 		adminUser, err := findActiveAdminUser(login)
 		switch {
@@ -67,7 +56,7 @@ func AdminLogin(c *gin.Context) {
 				if signErr != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{
 						"error":   "internal_error",
-						"message": signErr.Error(),
+						"message": "Не удалось сформировать токен администратора",
 					})
 					return
 				}
@@ -81,17 +70,16 @@ func AdminLogin(c *gin.Context) {
 		case err != nil && !errors.Is(err, gorm.ErrRecordNotFound):
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "internal_error",
-				"message": err.Error(),
+				"message": "Внутренняя ошибка авторизации администратора",
 			})
 			return
 		}
 	}
 
-	// 2. Fallback на singleton-admin из env.
 	if !checkEnvAdminCredentials(login, req.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error":   "unauthorized",
-			"message": "invalid admin credentials",
+			"message": "Некорректные данные администратора",
 		})
 		return
 	}
@@ -100,7 +88,7 @@ func AdminLogin(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
-			"message": err.Error(),
+			"message": "Внутренняя ошибка авторизации администратора",
 		})
 		return
 	}

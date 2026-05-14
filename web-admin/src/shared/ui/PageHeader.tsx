@@ -1,6 +1,14 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren, ReactNode } from "react";
 
-export function PageHeader({ title, subtitle, actions }: PropsWithChildren<{ title: string; subtitle?: string; actions?: ReactNode }>) {
+export function PageHeader({
+  title,
+  subtitle,
+  actions,
+}: PropsWithChildren<{
+  title: string;
+  subtitle?: string;
+  actions?: ReactNode;
+}>) {
   return (
     <div className="page-header">
       <div>

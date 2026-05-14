@@ -7,13 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Middleware проверяет Bearer JWT и, при необходимости, роль.
-//
-// Поддерживаемые режимы:
-//   - Middleware("")        -> любой авторизованный пользователь
-//   - Middleware("editor")  -> editor или admin
-//   - Middleware("admin")   -> только admin
-//   - Middleware("<role>")  -> точное совпадение роли
 func Middleware(requiredRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h := c.GetHeader("Authorization")

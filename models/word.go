@@ -20,10 +20,10 @@ type Word struct {
 	CreatedAt       time.Time `gorm:"not null;default:now()"`
 	UpdatedAt       time.Time `gorm:"not null;default:now()"`
 
-	Category *Category       `gorm:"foreignKey:CategoryID;constraint:OnDelete:SET NULL;"`
-	MetaBase *WordMetaBase   `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
-	MetaLang []WordMetaLang  `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
-	Synonyms []WordSynonym   `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
-	Attempts []Attempt       `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
+	Category *Category          `gorm:"foreignKey:CategoryID;constraint:OnDelete:SET NULL;"`
+	MetaBase *WordMetaBase      `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
+	MetaLang []WordMetaLang     `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
+	Synonyms []WordSynonym      `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
+	Attempts []Attempt          `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
 	Progress []UserWordProgress `gorm:"foreignKey:WordID;constraint:OnDelete:CASCADE;"`
 }

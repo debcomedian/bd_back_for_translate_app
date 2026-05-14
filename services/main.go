@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, relying on environment variables")
+		log.Println("Файл .env не найден, используются переменные окружения системы")
 	}
 
 	inputPath := os.Getenv("ACTIVE_BANK_PATH")
@@ -24,12 +24,12 @@ func main() {
 
 	report, err := ImportActiveBank(database.DB, inputPath)
 	if err != nil {
-		log.Fatalf("import active bank failed: %v", err)
+		log.Fatalf("Ошибка импорта active_bank: %v", err)
 	}
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(report); err != nil {
-		log.Fatalf("encode report failed: %v", err)
+		log.Fatalf("Ошибка кодирования отчёта: %v", err)
 	}
 }

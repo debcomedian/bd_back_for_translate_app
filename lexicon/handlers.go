@@ -46,15 +46,6 @@ func (h *Handler) ImportActiveBank(c *gin.Context) {
 	c.JSON(http.StatusOK, report)
 }
 
-func (h *Handler) RebuildFromCurrent(c *gin.Context) {
-	report, err := RebuildFromCurrent(h.DB)
-	if err != nil {
-		respondError(c, http.StatusInternalServerError, "internal_error", err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, report)
-}
-
 func (h *Handler) RecalculateDirections(c *gin.Context) {
 	report, err := RecalculateDirectionMeta(h.DB)
 	if err != nil {
@@ -194,7 +185,7 @@ func respondError(c *gin.Context, status int, code, message string) {
 func parseUintParam(c *gin.Context, name string) (uint64, bool) {
 	id, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil || id == 0 {
-		respondError(c, http.StatusBadRequest, "bad_id", "invalid "+name)
+		respondError(c, http.StatusBadRequest, "bad_id", "Некорректный идентификатор: "+name)
 		return 0, false
 	}
 	return id, true
@@ -203,7 +194,7 @@ func parseUintParam(c *gin.Context, name string) (uint64, bool) {
 func getUserID(c *gin.Context) (uint64, bool) {
 	value, ok := c.Get("uid")
 	if !ok {
-		respondError(c, http.StatusUnauthorized, "unauthorized", "missing user id")
+		respondError(c, http.StatusUnauthorized, "unauthorized", "Идентификатор пользователя отсутствует")
 		return 0, false
 	}
 	switch v := value.(type) {
@@ -216,7 +207,7 @@ func getUserID(c *gin.Context) (uint64, bool) {
 	case float64:
 		return uint64(v), true
 	default:
-		respondError(c, http.StatusUnauthorized, "unauthorized", "invalid user id")
+		respondError(c, http.StatusUnauthorized, "unauthorized", "Некорректный идентификатор пользователя")
 		return 0, false
 	}
 }

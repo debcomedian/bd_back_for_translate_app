@@ -92,7 +92,7 @@ func SyncPush(c *gin.Context) {
 			EntityType:       e.EntityType,
 			EntityID:         e.EntityID,
 			EventType:        e.EventType,
-			PayloadJSON: 			datatypes.JSON(e.Payload),
+			PayloadJSON:      datatypes.JSON(e.Payload),
 			ClientCreatedAt:  e.ClientCreatedAt,
 			ServerReceivedAt: now,
 			Status:           "received",
@@ -128,7 +128,7 @@ func SyncPull(c *gin.Context) {
 
 	var snapshot models.ContentSnapshotVersion
 	err := DB.Where("snapshot_type = ? AND is_active = TRUE", "words_base").Order("version_code DESC").First(&snapshot).Error
-	if err != nil && err.Error() != "record not found" {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		handleDBErr(c, err)
 		return
 	}

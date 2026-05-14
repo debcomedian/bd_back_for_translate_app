@@ -1,4 +1,3 @@
-// auth/token.go
 package auth
 
 import (
@@ -10,11 +9,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// ------------------------------------------------------------------
-// секрет берём из переменной окружения, иначе генерируем при старте.
-// Поэтому после перезапуска сервера подпись меняется → все токены
-// автоматически становятся недействительными.
-// ------------------------------------------------------------------
 var secret = func() []byte {
 	if s := os.Getenv("JWT_SECRET"); s != "" {
 		return []byte(s)
@@ -24,7 +18,7 @@ var secret = func() []byte {
 	return []byte(base64.StdEncoding.EncodeToString(b))
 }()
 
-const tokenTTL = 20 * time.Minute // ← срок жизни токена
+const tokenTTL = 20 * time.Minute
 
 type Claims struct {
 	UID  int    `json:"uid"`
@@ -32,7 +26,6 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// Sign — выдаём JWT на 10 мин.
 func Sign(uid int, role string) (string, error) {
 	claims := &Claims{
 		UID:  uid,
@@ -45,7 +38,6 @@ func Sign(uid int, role string) (string, error) {
 	return tk.SignedString(secret)
 }
 
-// Parse — валидируем подпись и срок действия
 func Parse(tkn string) (*Claims, error) {
 	p, err := jwt.ParseWithClaims(
 		tkn, &Claims{},

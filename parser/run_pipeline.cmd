@@ -5,7 +5,7 @@ set SCRIPT_DIR=%~dp0
 
 pushd "%SCRIPT_DIR%\.."
 
-echo [1/3] Stage 3.1 soft validation...
+echo [1/3] Этап 3.1: мягкая валидация...
 go run ./parser ^
   -english-input "../BigDATA/kaikki.org-dictionary-English.jsonl" ^
   -russian-input "../BigDATA/kaikki.org-dictionary-Russian.jsonl" ^
@@ -17,14 +17,14 @@ go run ./parser ^
   -debug-sample-limit-per-reason 200
 if errorlevel 1 goto :fail
 
-echo [2/3] Stage 4 frequency ranking...
+echo [2/3] Этап 4: частотное ранжирование...
 python parser\stage4_frequency_ranker.py ^
   --input "data\lexicon\stage3_1_extended_soft.jsonl" ^
   --output "data\lexicon\stage4_frequency_ranked.jsonl" ^
   --stats "data\lexicon\stage4_frequency_stats.json"
 if errorlevel 1 goto :fail
 
-echo [3/3] Stage 4.1 bank selection...
+echo [3/3] Этап 4.1: отбор словарного банка...
 python parser\stage4_1_bank_selector.py ^
   --input "data\lexicon\stage4_frequency_ranked.jsonl" ^
   --active-output "data\lexicon\active_bank.jsonl" ^
@@ -35,11 +35,11 @@ python parser\stage4_1_bank_selector.py ^
   --active-limit 3000
 if errorlevel 1 goto :fail
 
-echo DONE
+echo ГОТОВО
 popd
 exit /b 0
 
 :fail
-echo FAILED
+echo ОШИБКА
 popd
 exit /b 1

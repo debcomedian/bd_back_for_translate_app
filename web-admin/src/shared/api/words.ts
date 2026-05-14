@@ -1,5 +1,5 @@
-import { api } from './client';
-import type { Word } from '../../types';
+import { api } from "./client";
+import type { Word } from "../../types";
 
 export type WordPayload = {
   lang_code: string;
@@ -15,16 +15,19 @@ export type WordPayload = {
 };
 
 export async function fetchWords(): Promise<Word[]> {
-  const { data } = await api.get<Word[]>('/admin/words');
+  const { data } = await api.get<Word[]>("/admin/words");
   return data;
 }
 
 export async function createWord(payload: WordPayload): Promise<Word> {
-  const { data } = await api.post<Word>('/admin/words', payload);
+  const { data } = await api.post<Word>("/admin/words", payload);
   return data;
 }
 
-export async function updateWord(id: number, payload: WordPayload): Promise<Word> {
+export async function updateWord(
+  id: number,
+  payload: WordPayload,
+): Promise<Word> {
   const { data } = await api.put<Word>(`/admin/words/${id}`, payload);
   return data;
 }

@@ -43,13 +43,13 @@ func Register(c *gin.Context) {
 	req.Username = strings.TrimSpace(req.Username)
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	if req.Username == "" || req.Email == "" || req.Password == "" {
-		writeError(c, http.StatusUnprocessableEntity, "validation_error", "username, email and password are required")
+		writeError(c, http.StatusUnprocessableEntity, "validation_error", "Необходимо указать username, email и password")
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "password_hash_error", err.Error())
+		writeError(c, http.StatusInternalServerError, "password_hash_error", "Не удалось сформировать хеш пароля")
 		return
 	}
 
@@ -65,7 +65,7 @@ func Register(c *gin.Context) {
 
 	token, err := auth.Sign(int(user.ID), "user")
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "token_error", err.Error())
+		writeError(c, http.StatusInternalServerError, "token_error", "Не удалось сформировать токен авторизации")
 		return
 	}
 
@@ -85,18 +85,18 @@ func Login(c *gin.Context) {
 	var user models.User
 	err := DB.Where("username = ? OR email = ?", login, strings.ToLower(login)).First(&user).Error
 	if err != nil {
-		writeError(c, http.StatusUnauthorized, "unauthorized", "invalid credentials")
+		writeError(c, http.StatusUnauthorized, "unauthorized", "Некорректные учётные данные")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		writeError(c, http.StatusUnauthorized, "unauthorized", "invalid credentials")
+		writeError(c, http.StatusUnauthorized, "unauthorized", "Некорректные учётные данные")
 		return
 	}
 
 	token, err := auth.Sign(int(user.ID), "user")
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "token_error", err.Error())
+		writeError(c, http.StatusInternalServerError, "token_error", "Не удалось сформировать токен авторизации")
 		return
 	}
 

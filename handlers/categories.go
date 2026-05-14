@@ -42,7 +42,7 @@ func CreateCategory(c *gin.Context) {
 		req.Entity = "word"
 	}
 	if req.Slug == "" || req.NameRu == "" || req.NameEn == "" || req.NameDe == "" {
-		writeError(c, http.StatusUnprocessableEntity, "validation_error", "slug, name_ru, name_en and name_de are required")
+		writeError(c, http.StatusUnprocessableEntity, "validation_error", "Необходимо указать slug, name_ru, name_en и name_de")
 		return
 	}
 
@@ -69,7 +69,7 @@ func UpdateCategory(c *gin.Context) {
 	var obj models.Category
 	if err := DB.First(&obj, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			writeError(c, http.StatusNotFound, "not_found", "category not found")
+			writeError(c, http.StatusNotFound, "not_found", "Категория не найдена")
 			return
 		}
 		handleDBErr(c, err)

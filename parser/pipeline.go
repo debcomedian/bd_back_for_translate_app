@@ -26,7 +26,7 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 
 	for _, path := range []string{cfg.CoreOutputPath, cfg.ExtendedOutputPath, cfg.StatsPath} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			return stats, fmt.Errorf("create output dir for %s: %w", path, err)
+			return stats, fmt.Errorf("не удалось создать выходной каталог для %s: %w", path, err)
 		}
 	}
 
@@ -61,13 +61,13 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 
 	coreFile, err := os.Create(cfg.CoreOutputPath)
 	if err != nil {
-		return stats, fmt.Errorf("create core output file: %w", err)
+		return stats, fmt.Errorf("не удалось создать основной выходной файл: %w", err)
 	}
 	defer coreFile.Close()
 
 	extendedFile, err := os.Create(cfg.ExtendedOutputPath)
 	if err != nil {
-		return stats, fmt.Errorf("create extended output file: %w", err)
+		return stats, fmt.Errorf("не удалось создать расширенный выходной файл: %w", err)
 	}
 	defer extendedFile.Close()
 
@@ -110,7 +110,7 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 				RawPOS:         entry.Pos,
 				Glosses:        collectGlosses(entry, cfg.MaxGlosses),
 				Translations:   limitRawTranslations(entry.Translations, 20),
-				Note:           "raw pos is not in allowedPOS",
+				Note:           "исходная часть речи не входит в список разрешённых POS",
 			})
 			continue
 		}
@@ -127,7 +127,7 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 				CanonicalPOS:   pos,
 				Glosses:        collectGlosses(entry, cfg.MaxGlosses),
 				Translations:   limitRawTranslations(entry.Translations, 20),
-				Note:           "english lemma did not pass isSimpleEnglishLemma",
+				Note:           "английская лемма не прошла проверку isSimpleEnglishLemma",
 			})
 			continue
 		}
@@ -143,7 +143,7 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 				RawPOS:         entry.Pos,
 				CanonicalPOS:   pos,
 				Translations:   limitRawTranslations(entry.Translations, 20),
-				Note:           "entry has no usable glosses after collectGlosses",
+				Note:           "у записи нет пригодных толкований после collectGlosses",
 			})
 			continue
 		}
@@ -160,10 +160,10 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 			}
 			rawTargets[spec.LangCode] = relaxed
 			states[spec.LangCode] = CandidateTargetState{
-				FromEnglish: relaxed,
+				FromEnglish:     relaxed,
 				StrictValidated: []string{},
-				SoftValidated: []string{},
-				Completed: []string{},
+				SoftValidated:   []string{},
+				Completed:       []string{},
 			}
 			for _, tr := range strict {
 				if info, ok := targetIndexes[spec.LangCode][normalizeLexemeKey(tr)]; ok && info.HasGloss {
@@ -193,7 +193,7 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 				CanonicalPOS:   pos,
 				Glosses:        glosses,
 				Translations:   limitRawTranslations(entry.Translations, 20),
-				Note:           "english entry has no usable target-language candidates after relaxed extraction",
+				Note:           "у английской записи нет пригодных кандидатов целевых языков после мягкого извлечения",
 			})
 			continue
 		}
@@ -201,11 +201,11 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 		completeStatesSoft(lemma, states, targetIndexes, specs, cfg.MaxTranslationsPerLang)
 
 		candidate := Stage31Candidate{
-			EnLemma:    lemma,
-			Pos:        pos,
-			Glosses:    glosses,
-			Targets:    states,
-			Source:     "english candidates + soft target validation",
+			EnLemma: lemma,
+			Pos:     pos,
+			Glosses: glosses,
+			Targets: states,
+			Source:  "английские кандидаты + мягкая валидация целевых языков",
 		}
 		candidate.Status, candidate.Layer, candidate.Confidence, candidate.Flags = classifyCandidate(candidate, specs)
 		stats.StatusCounts[candidate.Status]++
@@ -222,7 +222,7 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 				Translations:   limitRawTranslations(entry.Translations, 30),
 				RawTargets:     rawTargets,
 				States:         states,
-				Note:           "kept in extended, but no target side reached soft validation",
+				Note:           "оставлено в расширенном наборе, но ни один целевой язык не достиг мягкой валидации",
 			})
 		}
 		if candidate.Status == "half_validated" {
@@ -237,17 +237,17 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 				Translations:   limitRawTranslations(entry.Translations, 30),
 				RawTargets:     rawTargets,
 				States:         states,
-				Note:           "kept in extended with only one target side soft-validated/completed",
+				Note:           "оставлено в расширенном наборе: только один целевой язык прошёл мягкую валидацию или был дополнен",
 			})
 		}
 
 		if cfg.LimitExtended == 0 || stats.WrittenExtendedAll < cfg.LimitExtended {
 			b, err := marshalLine(candidate)
 			if err != nil {
-				return stats, fmt.Errorf("marshal extended candidate: %w", err)
+				return stats, fmt.Errorf("не удалось сериализовать расширенного кандидата: %w", err)
 			}
 			if _, err := extendedWriter.Write(b); err != nil {
-				return stats, fmt.Errorf("write extended candidate: %w", err)
+				return stats, fmt.Errorf("не удалось записать расширенного кандидата: %w", err)
 			}
 			stats.WrittenExtendedAll++
 		}
@@ -255,23 +255,23 @@ func RunStage31(cfg Config) (Stage31Stats, error) {
 		if candidate.Layer == "core" && (cfg.LimitCore == 0 || stats.WrittenCore < cfg.LimitCore) {
 			b, err := marshalLine(candidate)
 			if err != nil {
-				return stats, fmt.Errorf("marshal core candidate: %w", err)
+				return stats, fmt.Errorf("не удалось сериализовать кандидата основного набора: %w", err)
 			}
 			if _, err := coreWriter.Write(b); err != nil {
-				return stats, fmt.Errorf("write core candidate: %w", err)
+				return stats, fmt.Errorf("не удалось записать кандидата основного набора: %w", err)
 			}
 			stats.WrittenCore++
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return stats, fmt.Errorf("scan english input for stage3.1: %w", err)
+		return stats, fmt.Errorf("ошибка чтения английского входного файла для Stage 3.1: %w", err)
 	}
 	if err := coreWriter.Flush(); err != nil {
-		return stats, fmt.Errorf("flush core output: %w", err)
+		return stats, fmt.Errorf("не удалось сбросить буфер основного выходного файла: %w", err)
 	}
 	if err := extendedWriter.Flush(); err != nil {
-		return stats, fmt.Errorf("flush extended output: %w", err)
+		return stats, fmt.Errorf("не удалось сбросить буфер расширенного выходного файла: %w", err)
 	}
 	if err := writeJSONFile(cfg.StatsPath, stats); err != nil {
 		return stats, err
@@ -399,14 +399,14 @@ func limitRawTranslations(in []Translation, limit int) []Translation {
 func writeJSONFile(path string, v any) error {
 	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("create json file %s: %w", path, err)
+		return fmt.Errorf("не удалось создать JSON-файл %s: %w", path, err)
 	}
 	defer f.Close()
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(v); err != nil {
-		return fmt.Errorf("encode json file %s: %w", path, err)
+		return fmt.Errorf("не удалось записать JSON-файл %s: %w", path, err)
 	}
 	return nil
 }

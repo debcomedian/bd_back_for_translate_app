@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react';
-import { fetchSnapshot } from '../shared/api/snapshot';
-import { recalculateWordsMeta } from '../shared/api/import';
-import { extractApiError } from '../shared/api/client';
-import { PageHeader } from '../shared/ui/PageHeader';
-import type { SnapshotResponse } from '../types';
+import { useEffect, useState } from "react";
+import { fetchSnapshot } from "../shared/api/snapshot";
+import { recalculateDirections } from "../shared/api/import";
+import { extractApiError } from "../shared/api/client";
+import { PageHeader } from "../shared/ui/PageHeader";
+import type { SnapshotResponse } from "../types";
 
-function CountCard({ title, value, hint }: { title: string; value: number; hint?: string }) {
+function CountCard({
+  title,
+  value,
+  hint,
+}: {
+  title: string;
+  value: number;
+  hint?: string;
+}) {
   return (
     <div className="card stack stat-card">
       <h2>{title}</h2>
@@ -42,7 +50,7 @@ export function SnapshotPage() {
     setBusy(true);
     setError(null);
     try {
-      await recalculateWordsMeta();
+      await recalculateDirections();
       await load();
     } catch (e) {
       setError(extractApiError(e));
@@ -56,12 +64,20 @@ export function SnapshotPage() {
   return (
     <div className="stack">
       <PageHeader
-        title="Snapshot"
-        subtitle="Полная offline-выгрузка новой направленной модели для mobile client."
+        title="Снимок контента"
+        subtitle="Полная offline-выгрузка новой направленной модели для мобильного клиента."
         actions={
           <>
-            <button className="btn btn-secondary" onClick={() => void load()}>Обновить</button>
-            <button className="btn btn-primary" onClick={() => void handleRecalculate()} disabled={busy}>{busy ? 'Пересчёт...' : 'Пересчитать направления'}</button>
+            <button className="btn btn-secondary" onClick={() => void load()}>
+              Обновить
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => void handleRecalculate()}
+              disabled={busy}
+            >
+              {busy ? "Пересчёт..." : "Пересчитать направления"}
+            </button>
           </>
         }
       />
@@ -71,25 +87,50 @@ export function SnapshotPage() {
         <h2>Активная версия snapshot</h2>
         {version ? (
           <dl className="kv">
-            <dt>ID</dt><dd>{version.id}</dd>
-            <dt>Тип</dt><dd>{version.snapshot_type}</dd>
-            <dt>Version code</dt><dd>{version.version_code}</dd>
-            <dt>Checksum</dt><dd>{version.checksum}</dd>
-            <dt>Published at</dt><dd>{version.published_at ?? '—'}</dd>
+            <dt>ID</dt>
+            <dd>{version.id}</dd>
+            <dt>Тип</dt>
+            <dd>{version.snapshot_type}</dd>
+            <dt>Код версии</dt>
+            <dd>{version.version_code}</dd>
+            <dt>Контрольная сумма</dt>
+            <dd>{version.checksum}</dd>
+            <dt>Опубликовано</dt>
+            <dd>{version.published_at ?? "—"}</dd>
           </dl>
         ) : (
-          <div className="notice">Активная версия snapshot ещё не опубликована.</div>
+          <div className="notice">
+            Активная версия snapshot ещё не опубликована.
+          </div>
         )}
       </div>
       <div className="grid-4">
         <CountCard title="Языки" value={data?.languages.length ?? 0} />
         <CountCard title="Категории" value={data?.categories.length ?? 0} />
-        <CountCard title="Концепты" value={data?.concepts.length ?? 0} hint="Смысловые карточки" />
-        <CountCard title="Формы" value={data?.forms.length ?? 0} hint="Языковые формы" />
-        <CountCard title="Concept meta" value={data?.concept_meta.length ?? 0} />
-        <CountCard title="Form meta" value={data?.form_meta.length ?? 0} />
+        <CountCard
+          title="Концепты"
+          value={data?.concepts.length ?? 0}
+          hint="Смысловые карточки"
+        />
+        <CountCard
+          title="Формы"
+          value={data?.forms.length ?? 0}
+          hint="Языковые формы"
+        />
+        <CountCard
+          title="Метаданные карточек"
+          value={data?.concept_meta.length ?? 0}
+        />
+        <CountCard
+          title="Метаданные форм"
+          value={data?.form_meta.length ?? 0}
+        />
         <CountCard title="Синонимы" value={data?.form_synonyms.length ?? 0} />
-        <CountCard title="Направления" value={data?.directions.length ?? 0} hint="source → target" />
+        <CountCard
+          title="Направления"
+          value={data?.directions.length ?? 0}
+          hint="источник → цель"
+        />
       </div>
     </div>
   );

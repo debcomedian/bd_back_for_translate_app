@@ -20,7 +20,7 @@ import (
 func ImportActiveBank(db *gorm.DB, inputPath string) (*ActiveBankImportReport, error) {
 	f, err := os.Open(inputPath)
 	if err != nil {
-		return nil, fmt.Errorf("open active bank: %w", err)
+		return nil, fmt.Errorf("не удалось открыть active_bank: %w", err)
 	}
 	defer f.Close()
 
@@ -113,7 +113,7 @@ func ImportActiveBank(db *gorm.DB, inputPath string) (*ActiveBankImportReport, e
 
 	if err := scanner.Err(); err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("scan active bank: %w", err)
+		return nil, fmt.Errorf("ошибка чтения active_bank: %w", err)
 	}
 
 	snap, err := publishNextSnapshotVersionForImport(tx, "words_base")
