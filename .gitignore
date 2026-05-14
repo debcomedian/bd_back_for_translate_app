@@ -9,7 +9,7 @@
 /info
 /test/*.csv
 /test/*.json
-/test/repots
+/test/reports
 /test/scripts
 /v1
 /web-admin/package-lock.json
