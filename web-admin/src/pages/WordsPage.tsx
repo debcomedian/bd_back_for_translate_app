@@ -2,53 +2,75 @@ import { useEffect, useMemo, useState } from 'react';
 import { fetchDirections } from '../shared/api/directions';
 import { extractApiError } from '../shared/api/client';
 import { PageHeader } from '../shared/ui/PageHeader';
-import type { TrainingDirection } from '../types';
+import type { DirectionListPagination, DirectionSortBy, DirectionSortDir, TrainingDirection } from '../types';
 
-type SortKey =
-  | 'direction_id'
-  | 'direction_code'
-  | 'source_value'
-  | 'target_value'
-  | 'category_name_ru'
-  | 'cefr_level'
-  | 'final_difficulty'
-  | 'is_active';
-
-type SortDirection = 'asc' | 'desc';
-
-function valueForSort(item: TrainingDirection, key: SortKey): string | number | boolean | null | undefined {
-  return item[key];
-}
-
-function compareValues(a: string | number | boolean | null | undefined, b: string | number | boolean | null | undefined) {
-  if (a === b) return 0;
-  if (a === undefined || a === null) return -1;
-  if (b === undefined || b === null) return 1;
-  if (typeof a === 'number' && typeof b === 'number') return a - b;
-  if (typeof a === 'boolean' && typeof b === 'boolean') return Number(a) - Number(b);
-  return String(a).localeCompare(String(b), 'ru', { numeric: true, sensitivity: 'base' });
-}
+const DIRECTION_CODES = ['en_ru', 'ru_en', 'en_de', 'de_en', 'ru_de', 'de_ru'];
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 250];
 
 function formatNumber(value?: number | null) {
   if (value === undefined || value === null) return '—';
   return Number(value).toFixed(3);
 }
 
+function sortLabel(currentKey: DirectionSortBy, currentDirection: DirectionSortDir, key: DirectionSortBy) {
+  if (currentKey !== key) return '';
+  return currentDirection === 'asc' ? ' ↑' : ' ↓';
+}
+
+function pageRange(pagination: DirectionListPagination) {
+  if (pagination.total === 0) {
+    return { from: 0, to: 0 };
+  }
+
+  const from = (pagination.page - 1) * pagination.page_size + 1;
+  const to = Math.min(pagination.page * pagination.page_size, pagination.total);
+  return { from, to };
+}
+
 export function WordsPage() {
   const [directions, setDirections] = useState<TrainingDirection[]>([]);
+  const [pagination, setPagination] = useState<DirectionListPagination>({
+    page: 1,
+    page_size: 100,
+    total: 0,
+    total_pages: 0,
+    has_prev: false,
+    has_next: false,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [directionCode, setDirectionCode] = useState('all');
-  const [sortKey, setSortKey] = useState<SortKey>('direction_id');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortKey, setSortKey] = useState<DirectionSortBy>('direction_id');
+  const [sortDirection, setSortDirection] = useState<DirectionSortDir>('asc');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(search.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchDirections();
-      setDirections(data);
+      const data = await fetchDirections({
+        page,
+        page_size: pageSize,
+        q: debouncedSearch || undefined,
+        direction_code: directionCode === 'all' ? undefined : directionCode,
+        active: 'true',
+        sort_by: sortKey,
+        sort_dir: sortDirection,
+      });
+      setDirections(data.items);
+      setPagination(data.pagination);
     } catch (e) {
       setError(extractApiError(e));
     } finally {
@@ -58,43 +80,17 @@ export function WordsPage() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [debouncedSearch, directionCode, page, pageSize, sortDirection, sortKey]);
 
-  const directionCodes = useMemo(
-    () => Array.from(new Set(directions.map((item) => item.direction_code).filter(Boolean))).sort(),
-    [directions]
-  );
+  const directionCodes = useMemo(() => {
+    const fromPage = directions.map((item) => item.direction_code).filter(Boolean);
+    return Array.from(new Set([...DIRECTION_CODES, ...fromPage])).sort();
+  }, [directions]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const result = directions.filter((item) => {
-      if (directionCode !== 'all' && item.direction_code !== directionCode) return false;
-      if (!q) return true;
-      return [
-        item.direction_id,
-        item.direction_code,
-        item.source_value,
-        item.target_value,
-        item.source_lang_code,
-        item.target_lang_code,
-        item.category_name_ru,
-        item.category_name_en,
-        item.category_slug,
-        item.cefr_level,
-      ]
-        .filter((value) => value !== undefined && value !== null)
-        .some((value) => String(value).toLowerCase().includes(q));
-    });
+  const range = pageRange(pagination);
 
-    result.sort((a, b) => {
-      const order = compareValues(valueForSort(a, sortKey), valueForSort(b, sortKey));
-      return sortDirection === 'asc' ? order : -order;
-    });
-
-    return result;
-  }, [directions, directionCode, search, sortDirection, sortKey]);
-
-  function changeSort(nextKey: SortKey) {
+  function changeSort(nextKey: DirectionSortBy) {
+    setPage(1);
     if (sortKey === nextKey) {
       setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
       return;
@@ -103,17 +99,50 @@ export function WordsPage() {
     setSortDirection('asc');
   }
 
-  function sortLabel(key: SortKey) {
-    if (sortKey !== key) return '';
-    return sortDirection === 'asc' ? ' ↑' : ' ↓';
+  function changeDirectionCode(nextCode: string) {
+    setPage(1);
+    setDirectionCode(nextCode);
   }
+
+  function changePageSize(nextPageSize: number) {
+    setPage(1);
+    setPageSize(nextPageSize);
+  }
+
+  function goToPage(nextPage: number) {
+    if (nextPage < 1) return;
+    if (pagination.total_pages > 0 && nextPage > pagination.total_pages) return;
+    setPage(nextPage);
+  }
+
+  const paginationControls = (
+    <div className="pagination-bar">
+      <div className="pagination-info">
+        Показано {range.from}–{range.to} из {pagination.total}. Страница {pagination.page} из {pagination.total_pages || 1}.
+      </div>
+      <div className="pagination-actions">
+        <button className="btn btn-secondary" disabled={!pagination.has_prev || loading} onClick={() => goToPage(1)}>
+          Первая
+        </button>
+        <button className="btn btn-secondary" disabled={!pagination.has_prev || loading} onClick={() => goToPage(page - 1)}>
+          Назад
+        </button>
+        <button className="btn btn-secondary" disabled={!pagination.has_next || loading} onClick={() => goToPage(page + 1)}>
+          Вперёд
+        </button>
+        <button className="btn btn-secondary" disabled={!pagination.has_next || loading} onClick={() => goToPage(pagination.total_pages)}>
+          Последняя
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="stack">
       <PageHeader
         title="Направления"
-        subtitle="Главный экран новой словарной модели: задания source → target с отдельной сложностью и прогрессом."
-        actions={<button className="btn btn-secondary" onClick={() => void load()}>Обновить</button>}
+        subtitle="Серверная таблица учебных заданий source → target. Пагинация, поиск и сортировка выполняются на backend."
+        actions={<button className="btn btn-secondary" onClick={() => void load()} disabled={loading}>Обновить</button>}
       />
 
       {error ? <div className="error">{error}</div> : null}
@@ -132,38 +161,46 @@ export function WordsPage() {
           </div>
           <div className="toolbar-field">
             <label className="label">Direction</label>
-            <select className="select" value={directionCode} onChange={(e) => setDirectionCode(e.target.value)}>
+            <select className="select" value={directionCode} onChange={(e) => changeDirectionCode(e.target.value)}>
               <option value="all">Все</option>
               {directionCodes.map((code) => (
                 <option key={code} value={code}>{code}</option>
               ))}
             </select>
           </div>
+          <div className="toolbar-field small">
+            <label className="label">На странице</label>
+            <select className="select" value={pageSize} onChange={(e) => changePageSize(Number(e.target.value))}>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </div>
           <div className="toolbar-stat">
-            <span>Показано</span>
-            <strong>{filtered.length}</strong>
-            <span>из {directions.length}</span>
+            <span>Всего</span>
+            <strong>{pagination.total}</strong>
           </div>
         </div>
+        {paginationControls}
       </div>
 
       <div className="card table-wrap">
         <table className="table">
           <thead>
             <tr>
-              <th><button className="th-btn" onClick={() => changeSort('direction_id')}>ID{sortLabel('direction_id')}</button></th>
-              <th><button className="th-btn" onClick={() => changeSort('direction_code')}>Direction{sortLabel('direction_code')}</button></th>
-              <th><button className="th-btn" onClick={() => changeSort('source_value')}>Source{sortLabel('source_value')}</button></th>
-              <th><button className="th-btn" onClick={() => changeSort('target_value')}>Target{sortLabel('target_value')}</button></th>
-              <th>Lang</th>
-              <th><button className="th-btn" onClick={() => changeSort('category_name_ru')}>Категория{sortLabel('category_name_ru')}</button></th>
-              <th><button className="th-btn" onClick={() => changeSort('cefr_level')}>CEFR{sortLabel('cefr_level')}</button></th>
-              <th><button className="th-btn" onClick={() => changeSort('final_difficulty')}>Difficulty{sortLabel('final_difficulty')}</button></th>
-              <th><button className="th-btn" onClick={() => changeSort('is_active')}>Active{sortLabel('is_active')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('direction_id')}>ID{sortLabel(sortKey, sortDirection, 'direction_id')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('direction_code')}>Direction{sortLabel(sortKey, sortDirection, 'direction_code')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('source_value')}>Source{sortLabel(sortKey, sortDirection, 'source_value')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('target_value')}>Target{sortLabel(sortKey, sortDirection, 'target_value')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('source_lang_code')}>Lang{sortLabel(sortKey, sortDirection, 'source_lang_code')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('category_name_ru')}>Категория{sortLabel(sortKey, sortDirection, 'category_name_ru')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('cefr_level')}>CEFR{sortLabel(sortKey, sortDirection, 'cefr_level')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('final_difficulty')}>Difficulty{sortLabel(sortKey, sortDirection, 'final_difficulty')}</button></th>
+              <th><button className="th-btn" onClick={() => changeSort('is_active')}>Active{sortLabel(sortKey, sortDirection, 'is_active')}</button></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((item) => (
+            {directions.map((item) => (
               <tr key={item.direction_id}>
                 <td>{item.direction_id}</td>
                 <td><span className="badge badge-muted">{item.direction_code}</span></td>
@@ -180,13 +217,17 @@ export function WordsPage() {
                 </td>
               </tr>
             ))}
-            {!loading && filtered.length === 0 ? (
+            {!loading && directions.length === 0 ? (
               <tr>
                 <td colSpan={9}>Направления не найдены.</td>
               </tr>
             ) : null}
           </tbody>
         </table>
+      </div>
+
+      <div className="card">
+        {paginationControls}
       </div>
     </div>
   );

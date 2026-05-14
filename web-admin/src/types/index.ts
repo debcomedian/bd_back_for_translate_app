@@ -111,6 +111,42 @@ export type TrainingDirection = {
   created_at?: string;
 };
 
+export type DirectionSortBy =
+  | 'direction_id'
+  | 'direction_code'
+  | 'source_value'
+  | 'target_value'
+  | 'source_lang_code'
+  | 'target_lang_code'
+  | 'category_name_ru'
+  | 'category_name_en'
+  | 'category_name_de'
+  | 'cefr_level'
+  | 'final_difficulty'
+  | 'is_active'
+  | 'created_at';
+
+export type DirectionSortDir = 'asc' | 'desc';
+
+export type DirectionListPagination = {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  has_prev: boolean;
+  has_next: boolean;
+};
+
+export type DirectionListResponse = {
+  items: TrainingDirection[];
+  total: number;
+  pagination: DirectionListPagination;
+  sort: {
+    sort_by: DirectionSortBy;
+    sort_dir: DirectionSortDir;
+  };
+};
+
 export type SnapshotVersion = {
   id: number;
   snapshot_type: string;

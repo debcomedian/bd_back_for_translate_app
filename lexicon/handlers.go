@@ -144,7 +144,17 @@ func (h *Handler) GetForms(c *gin.Context) {
 }
 
 func (h *Handler) GetDirections(c *gin.Context) {
-	resp, err := ListDirections(h.DB)
+	resp, err := ListDirections(h.DB, DirectionListQuery{
+		Page:           parseIntQuery(c, "page", 1),
+		PageSize:       parseIntQuery(c, "page_size", 100),
+		Search:         c.Query("q"),
+		DirectionCode:  c.Query("direction_code"),
+		SourceLangCode: c.Query("source_lang_code"),
+		TargetLangCode: c.Query("target_lang_code"),
+		Active:         c.Query("active"),
+		SortBy:         c.Query("sort_by"),
+		SortDir:        c.Query("sort_dir"),
+	})
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "internal_error", err.Error())
 		return
@@ -163,6 +173,18 @@ func (h *Handler) GetProgress(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, items)
+}
+
+func parseIntQuery(c *gin.Context, name string, fallback int) int {
+	value := strings.TrimSpace(c.Query(name))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func respondError(c *gin.Context, status int, code, message string) {

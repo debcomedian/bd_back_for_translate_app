@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { TrainingDirection } from '../../types';
+import type { DirectionListResponse, DirectionSortBy, DirectionSortDir, TrainingDirection } from '../../types';
 import {
   pickBoolean,
   pickNullableNumber,
@@ -7,6 +7,27 @@ import {
   pickNumber,
   pickString,
 } from './normalizers';
+
+export type FetchDirectionsParams = {
+  page?: number;
+  page_size?: number;
+  q?: string;
+  direction_code?: string;
+  source_lang_code?: string;
+  target_lang_code?: string;
+  active?: 'true' | 'false' | 'all';
+  sort_by?: DirectionSortBy;
+  sort_dir?: DirectionSortDir;
+};
+
+const defaultPagination = {
+  page: 1,
+  page_size: 100,
+  total: 0,
+  total_pages: 0,
+  has_prev: false,
+  has_next: false,
+};
 
 export function normalizeDirection(item: unknown): TrainingDirection {
   const directionId = pickNumber(item, ['direction_id', 'DirectionID', 'DirectionId', 'id', 'ID']);
@@ -57,7 +78,72 @@ function directionItemsFromResponse(data: unknown): unknown[] {
   return [];
 }
 
-export async function fetchDirections(): Promise<TrainingDirection[]> {
-  const { data } = await api.get<unknown>('/admin/directions');
-  return directionItemsFromResponse(data).map(normalizeDirection);
+function normalizeDirectionListResponse(data: unknown, fallbackParams?: FetchDirectionsParams): DirectionListResponse {
+  const items = directionItemsFromResponse(data).map(normalizeDirection);
+
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return {
+      items,
+      total: items.length,
+      pagination: {
+        page: fallbackParams?.page ?? 1,
+        page_size: fallbackParams?.page_size ?? items.length,
+        total: items.length,
+        total_pages: items.length > 0 ? 1 : 0,
+        has_prev: false,
+        has_next: false,
+      },
+      sort: {
+        sort_by: fallbackParams?.sort_by ?? 'direction_id',
+        sort_dir: fallbackParams?.sort_dir ?? 'asc',
+      },
+    };
+  }
+
+  const obj = data as Record<string, unknown>;
+  const pagination = obj.pagination && typeof obj.pagination === 'object'
+    ? obj.pagination as Record<string, unknown>
+    : {};
+  const sort = obj.sort && typeof obj.sort === 'object'
+    ? obj.sort as Record<string, unknown>
+    : {};
+  const total = Number(obj.total ?? pagination.total ?? items.length) || 0;
+  const page = Number(pagination.page ?? fallbackParams?.page ?? defaultPagination.page) || defaultPagination.page;
+  const pageSize = Number(pagination.page_size ?? fallbackParams?.page_size ?? defaultPagination.page_size) || defaultPagination.page_size;
+  const totalPages = Number(pagination.total_pages ?? Math.ceil(total / Math.max(pageSize, 1))) || 0;
+
+  return {
+    items,
+    total,
+    pagination: {
+      page,
+      page_size: pageSize,
+      total,
+      total_pages: totalPages,
+      has_prev: Boolean(pagination.has_prev ?? page > 1),
+      has_next: Boolean(pagination.has_next ?? (totalPages > 0 && page < totalPages)),
+    },
+    sort: {
+      sort_by: String(sort.sort_by ?? fallbackParams?.sort_by ?? 'direction_id') as DirectionSortBy,
+      sort_dir: String(sort.sort_dir ?? fallbackParams?.sort_dir ?? 'asc') as DirectionSortDir,
+    },
+  };
+}
+
+function compactParams(params: FetchDirectionsParams): Record<string, string | number> {
+  const result: Record<string, string | number> = {};
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '' || value === 'all') return;
+    result[key] = value;
+  });
+
+  return result;
+}
+
+export async function fetchDirections(params: FetchDirectionsParams = {}): Promise<DirectionListResponse> {
+  const { data } = await api.get<unknown>('/admin/directions', {
+    params: compactParams(params),
+  });
+  return normalizeDirectionListResponse(data, params);
 }
