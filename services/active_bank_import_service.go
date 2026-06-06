@@ -134,14 +134,14 @@ func ImportActiveBank(db *gorm.DB, inputPath string) (*ActiveBankImportReport, e
 
 func findExistingImportedWord(tx *gorm.DB, enLemma string) (models.Word, bool, error) {
 	var word models.Word
-	err := tx.Where("lang_code = ? AND word_en = ?", "en", enLemma).First(&word).Error
-	if err == nil {
-		return word, true, nil
+	result := tx.Where("lang_code = ? AND word_en = ?", "en", enLemma).Limit(1).Find(&word)
+	if result.Error != nil {
+		return models.Word{}, false, result.Error
 	}
-	if err == gorm.ErrRecordNotFound {
+	if result.RowsAffected == 0 {
 		return models.Word{}, false, nil
 	}
-	return models.Word{}, false, err
+	return word, true, nil
 }
 
 func upsertImportedWord(tx *gorm.DB, existing models.Word, found bool, rec ActiveBankRecord, en, ru, de string) (models.Word, bool, error) {
@@ -488,10 +488,12 @@ func seedBaseDifficulty(zipf float64, length int, status string) float64 {
 func publishNextSnapshotVersionForImport(tx *gorm.DB, snapshotType string) (*models.ContentSnapshotVersion, error) {
 	var current models.ContentSnapshotVersion
 	var nextVersion int64 = 1
-	if err := tx.Where("snapshot_type = ?", snapshotType).Order("version_code DESC").First(&current).Error; err == nil {
+	result := tx.Where("snapshot_type = ?", snapshotType).Order("version_code DESC").Limit(1).Find(&current)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected > 0 {
 		nextVersion = current.VersionCode + 1
-	} else if err != nil && err != gorm.ErrRecordNotFound {
-		return nil, err
 	}
 
 	checksum, err := calculateSnapshotChecksumForImport(tx, snapshotType, nextVersion)

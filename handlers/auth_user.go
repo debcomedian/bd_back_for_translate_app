@@ -46,6 +46,10 @@ func Register(c *gin.Context) {
 		writeError(c, http.StatusUnprocessableEntity, "validation_error", "Необходимо указать username, email и password")
 		return
 	}
+	if !isValidEmailAddress(req.Email) {
+		writeError(c, http.StatusUnprocessableEntity, "validation_error", "Введите корректный email")
+		return
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {

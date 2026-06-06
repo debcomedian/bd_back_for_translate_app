@@ -1,10 +1,12 @@
 package lexicon
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -64,21 +66,30 @@ func (h *Handler) GetCategories(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
+type categoryRequest struct {
+	Slug   string `json:"slug"`
+	NameRu string `json:"name_ru"`
+	NameEn string `json:"name_en"`
+	NameDe string `json:"name_de"`
+	Entity string `json:"entity"`
+}
+
 func (h *Handler) CreateCategory(c *gin.Context) {
-	var req Category
+	var req categoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "bad_request", "Некорректное тело JSON-запроса")
+		return
+	}
+	item, err := buildCategoryFromRequest(req)
+	if err != nil {
 		respondError(c, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
-	req.ID = 0
-	if req.Entity == "" {
-		req.Entity = "concept"
-	}
-	if err := h.DB.Create(&req).Error; err != nil {
+	if err := h.DB.Create(&item).Error; err != nil {
 		respondError(c, http.StatusConflict, "create_failed", err.Error())
 		return
 	}
-	c.JSON(http.StatusCreated, req)
+	c.JSON(http.StatusCreated, item)
 }
 
 func (h *Handler) UpdateCategory(c *gin.Context) {
@@ -88,17 +99,25 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	}
 	var existing Category
 	if err := h.DB.First(&existing, id).Error; err != nil {
-		respondError(c, http.StatusNotFound, "not_found", err.Error())
+		respondError(c, http.StatusNotFound, "not_found", "Категория не найдена")
 		return
 	}
-	var req Category
+	var req categoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "bad_request", "Некорректное тело JSON-запроса")
+		return
+	}
+	item, err := buildCategoryFromRequest(req)
+	if err != nil {
 		respondError(c, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
-	updates := map[string]any{"slug": req.Slug, "name_ru": req.NameRu, "name_en": req.NameEn, "name_de": req.NameDe, "entity": req.Entity}
-	if updates["entity"] == "" {
-		updates["entity"] = "concept"
+	updates := map[string]any{
+		"slug":    item.Slug,
+		"name_ru": item.NameRu,
+		"name_en": item.NameEn,
+		"name_de": item.NameDe,
+		"entity":  item.Entity,
 	}
 	if err := h.DB.Model(&existing).Updates(updates).Error; err != nil {
 		respondError(c, http.StatusConflict, "update_failed", err.Error())
@@ -106,6 +125,54 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	}
 	h.DB.First(&existing, id)
 	c.JSON(http.StatusOK, existing)
+}
+
+func buildCategoryFromRequest(req categoryRequest) (Category, error) {
+	slug := strings.ToLower(strings.TrimSpace(req.Slug))
+	nameRu := strings.TrimSpace(req.NameRu)
+	nameEn := strings.TrimSpace(req.NameEn)
+	nameDe := strings.TrimSpace(req.NameDe)
+	entity := strings.TrimSpace(req.Entity)
+	if entity == "" {
+		entity = "concept"
+	}
+	if slug == "" {
+		return Category{}, fmt.Errorf("код категории не должен быть пустым")
+	}
+	if containsDigit(slug) {
+		return Category{}, fmt.Errorf("код категории не должен содержать цифры")
+	}
+	for _, r := range slug {
+		if (r >= 'a' && r <= 'z') || r == '_' || r == '-' {
+			continue
+		}
+		return Category{}, fmt.Errorf("код категории может содержать только латинские буквы, дефис и подчёркивание")
+	}
+	for label, value := range map[string]string{
+		"Название RU": nameRu,
+		"Название EN": nameEn,
+		"Название DE": nameDe,
+	} {
+		if value == "" {
+			return Category{}, fmt.Errorf("%s не должно быть пустым", label)
+		}
+		if containsDigit(value) {
+			return Category{}, fmt.Errorf("%s не должно содержать цифры", label)
+		}
+	}
+	if entity != "concept" && entity != "word" {
+		return Category{}, fmt.Errorf("недопустимый тип сущности")
+	}
+	return Category{Slug: slug, NameRu: nameRu, NameEn: nameEn, NameDe: nameDe, Entity: entity}, nil
+}
+
+func containsDigit(value string) bool {
+	for _, r := range value {
+		if unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Handler) GetConcepts(c *gin.Context) {
@@ -142,6 +209,8 @@ func (h *Handler) GetDirections(c *gin.Context) {
 		DirectionCode:  c.Query("direction_code"),
 		SourceLangCode: c.Query("source_lang_code"),
 		TargetLangCode: c.Query("target_lang_code"),
+		CategoryID:     parseUintQuery(c, "category_id", 0),
+		Unassigned:     c.Query("unassigned"),
 		Active:         c.Query("active"),
 		SortBy:         c.Query("sort_by"),
 		SortDir:        c.Query("sort_dir"),
@@ -172,6 +241,18 @@ func parseIntQuery(c *gin.Context, name string, fallback int) int {
 		return fallback
 	}
 	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func parseUintQuery(c *gin.Context, name string, fallback uint64) uint64 {
+	value := strings.TrimSpace(c.Query(name))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseUint(value, 10, 64)
 	if err != nil {
 		return fallback
 	}

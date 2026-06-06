@@ -67,6 +67,8 @@ type DirectionListQuery struct {
 	DirectionCode  string
 	SourceLangCode string
 	TargetLangCode string
+	CategoryID     uint64
+	Unassigned     string
 	Active         string
 	SortBy         string
 	SortDir        string
@@ -93,6 +95,33 @@ type DirectionListResponse struct {
 	Sort       DirectionSort           `json:"sort"`
 }
 
+var directionListSelectColumns = []string{
+	"direction_id",
+	"concept_id",
+	"direction_code",
+	"source_lang_code",
+	"target_lang_code",
+	"source_form_id",
+	"source_value",
+	"target_form_id",
+	"target_value",
+	"category_id",
+	"category_slug",
+	"category_name_ru",
+	"category_name_en",
+	"category_name_de",
+	"cefr_level",
+	"importance_score",
+	"concept_base_difficulty",
+	"source_form_score",
+	"target_form_score",
+	"direction_bias",
+	"synonym_relief",
+	"final_difficulty",
+	"is_active",
+	"created_at",
+}
+
 func ListDirections(db *gorm.DB, params DirectionListQuery) (*DirectionListResponse, error) {
 	page := normalizePage(params.Page)
 	pageSize := normalizePageSize(params.PageSize)
@@ -110,7 +139,7 @@ func ListDirections(db *gorm.DB, params DirectionListQuery) (*DirectionListRespo
 	items := make([]TrainingDirectionView, 0, pageSize)
 	offset := (page - 1) * pageSize
 	orderExpr := directionSortColumn(sortBy) + " " + sortDir + ", direction_id ASC"
-	if err := baseQuery.Session(&gorm.Session{}).Order(orderExpr).Limit(pageSize).Offset(offset).Find(&items).Error; err != nil {
+	if err := baseQuery.Session(&gorm.Session{}).Select(directionListSelectColumns).Order(orderExpr).Limit(pageSize).Offset(offset).Find(&items).Error; err != nil {
 		return nil, err
 	}
 
@@ -156,6 +185,11 @@ func applyDirectionFilters(query *gorm.DB, params DirectionListQuery) *gorm.DB {
 	if targetLang := strings.TrimSpace(params.TargetLangCode); targetLang != "" && targetLang != "all" {
 		query = query.Where("target_lang_code = ?", targetLang)
 	}
+	if params.CategoryID > 0 {
+		query = query.Where("category_id = ?", params.CategoryID)
+	} else if isTruthyFilter(params.Unassigned) {
+		query = query.Where("category_id IS NULL")
+	}
 	if search := strings.TrimSpace(params.Search); search != "" {
 		like := "%" + search + "%"
 		query = query.Where(`
@@ -175,6 +209,15 @@ func applyDirectionFilters(query *gorm.DB, params DirectionListQuery) *gorm.DB {
 	}
 
 	return query
+}
+
+func isTruthyFilter(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "1", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizePage(value int) int {

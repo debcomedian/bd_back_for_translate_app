@@ -23,11 +23,28 @@ type BankQualityReport struct {
 	TargetCoverage  BankTargetCoverage     `json:"target_coverage"`
 	DirectionCounts map[string]int         `json:"direction_counts"`
 	IssueCounts     map[string]int         `json:"issue_counts"`
+	IssueCodeCounts map[string]int         `json:"issue_code_counts"`
 	IssueSamples    map[string][]BankIssue `json:"issue_samples"`
 	FirstRows       []BankRowPreview       `json:"first_rows"`
 	TopRiskRows     []BankRiskRow          `json:"top_risk_rows"`
 	Summary         BankQualitySummary     `json:"summary"`
 	Recommendations []string               `json:"recommendations"`
+
+	// Compatibility fields for the web-admin dashboard.
+	// The detailed report remains nested above, while these fields keep the UI simple.
+	FullTrilingualCount          int      `json:"full_trilingual_count"`
+	FullTrilingualPercent        float64  `json:"full_trilingual_percent"`
+	HalfValidatedPercent         float64  `json:"half_validated_percent"`
+	TailPercent                  float64  `json:"tail_percent"`
+	RowsWithIssuesPercent        float64  `json:"rows_with_issues_percent"`
+	UnsafeCandidatesCount        int      `json:"unsafe_candidates_count"`
+	WideSynonymCandidatesCount   int      `json:"wide_synonym_candidates_count"`
+	AccentVariantCandidatesCount int      `json:"accent_variant_candidates_count"`
+	WeakFrequencyBucketCount     int      `json:"weak_frequency_bucket_count"`
+	GatePassed                   bool     `json:"gate_passed"`
+	QualityGateReason            string   `json:"quality_gate_reason"`
+	GateErrors                   []string `json:"gate_errors"`
+	GateWarnings                 []string `json:"gate_warnings"`
 }
 
 type BankTargetCoverage struct {
@@ -53,6 +70,7 @@ type BankQualitySummary struct {
 
 type BankIssue struct {
 	Line     int    `json:"line"`
+	Code     string `json:"code,omitempty"`
 	Lemma    string `json:"lemma"`
 	POS      string `json:"pos"`
 	Status   string `json:"status"`
@@ -152,6 +170,7 @@ func AuditActiveBank(inputPath string, reader io.Reader, opts BankQualityOptions
 		BucketCounts:    map[string]int{},
 		DirectionCounts: map[string]int{},
 		IssueCounts:     map[string]int{},
+		IssueCodeCounts: map[string]int{},
 		IssueSamples:    map[string][]BankIssue{},
 	}
 
@@ -236,7 +255,7 @@ func AuditActiveBank(inputPath string, reader io.Reader, opts BankQualityOptions
 			rowIssues = true
 			riskScore += score
 			riskLabels = append(riskLabels, kind)
-			addIssue(report, opts, BankIssue{Line: line, Lemma: lemma, POS: pos, Status: status, Bucket: bucket, LangCode: lang, Value: value, Reason: reason})
+			addIssue(report, opts, BankIssue{Line: line, Code: kind, Lemma: lemma, POS: pos, Status: status, Bucket: bucket, LangCode: lang, Value: value, Reason: reason})
 		}
 
 		for _, lang := range opts.RequiredTargetLangs {
@@ -323,6 +342,7 @@ func AuditActiveBank(inputPath string, reader io.Reader, opts BankQualityOptions
 
 	report.Summary = buildQualitySummary(report, rowsWithIssues, opts)
 	report.Recommendations = buildQualityRecommendations(report, opts)
+	applyBankQualityFrontendFields(report)
 
 	return report, nil
 }
@@ -353,8 +373,8 @@ func buildQualitySummary(report *BankQualityReport, rowsWithIssues int, opts Ban
 	if s.FullTrilingualPercent < opts.MinFullTrilingualPct {
 		reasons = append(reasons, fmt.Sprintf("доля full_trilingual %.2f%% < %.2f%%", s.FullTrilingualPercent, opts.MinFullTrilingualPct))
 	}
-	if report.IssueCounts["unsafe_candidate"] > 0 && !opts.AllowUnsafeCandidates {
-		reasons = append(reasons, fmt.Sprintf("количество unsafe_candidate=%d", report.IssueCounts["unsafe_candidate"]))
+	if report.IssueCodeCounts["unsafe_candidate"] > 0 && !opts.AllowUnsafeCandidates {
+		reasons = append(reasons, fmt.Sprintf("количество unsafe_candidate=%d", report.IssueCodeCounts["unsafe_candidate"]))
 	}
 
 	if len(reasons) > 0 {
@@ -375,13 +395,13 @@ func buildQualityRecommendations(report *BankQualityReport, opts BankQualityOpti
 	if report.TargetCoverage.FullTrilingual < report.TotalRows {
 		recs = append(recs, "Сохранять неполные смысловые карточки, но явно помечать отсутствующие целевые языки и не создавать направления для отсутствующих языковых форм.")
 	}
-	if report.IssueCounts["unsafe_candidate"] > 0 {
+	if report.IssueCodeCounts["unsafe_candidate"] > 0 {
 		recs = append(recs, "Добавить фильтр регистра и безопасности перед импортом синонимов в учебный контент.")
 	}
-	if report.IssueCounts["too_many_candidates_ru"] > 0 || report.IssueCounts["too_many_candidates_de"] > 0 {
+	if report.IssueCodeCounts["too_many_candidates_ru"] > 0 || report.IssueCodeCounts["too_many_candidates_de"] > 0 {
 		recs = append(recs, "Ограничить число кандидатов-синонимов для одной формы и отделить точные синонимы от широких смысловых соответствий.")
 	}
-	if report.IssueCounts["accent_variant_in_candidates"] > 0 {
+	if report.IssueCodeCounts["accent_variant_in_candidates"] > 0 {
 		recs = append(recs, "Нормализовать варианты с ударениями до сохранения синонимов; произношение или ударение хранить отдельно при необходимости.")
 	}
 	return recs
@@ -393,10 +413,36 @@ func addIssue(report *BankQualityReport, opts BankQualityOptions, issue BankIssu
 		reason = "unknown"
 		issue.Reason = reason
 	}
+	code := strings.TrimSpace(issue.Code)
+	if code == "" {
+		code = reason
+	}
 	report.IssueCounts[reason]++
+	report.IssueCodeCounts[code]++
 	if len(report.IssueSamples[reason]) < opts.SampleLimit {
 		report.IssueSamples[reason] = append(report.IssueSamples[reason], issue)
 	}
+}
+
+func applyBankQualityFrontendFields(report *BankQualityReport) {
+	if report == nil {
+		return
+	}
+	report.FullTrilingualCount = report.TargetCoverage.FullTrilingual
+	report.FullTrilingualPercent = report.Summary.FullTrilingualPercent
+	report.HalfValidatedPercent = report.Summary.HalfValidatedPercent
+	report.TailPercent = report.Summary.TailPercent
+	report.RowsWithIssuesPercent = report.Summary.RowsWithIssuesPercent
+	report.UnsafeCandidatesCount = report.IssueCodeCounts["unsafe_candidate"]
+	report.WideSynonymCandidatesCount = report.IssueCodeCounts["too_many_candidates_ru"] + report.IssueCodeCounts["too_many_candidates_de"]
+	report.AccentVariantCandidatesCount = report.IssueCodeCounts["accent_variant_in_candidates"]
+	report.WeakFrequencyBucketCount = report.IssueCodeCounts["weak_frequency_bucket"]
+	report.GatePassed = report.Summary.QualityGatePassed
+	report.QualityGateReason = report.Summary.QualityGateReason
+	if !report.Summary.QualityGatePassed {
+		report.GateErrors = []string{report.Summary.QualityGateReason}
+	}
+	report.GateWarnings = append([]string(nil), report.Recommendations...)
 }
 
 func incrementDirectionCounts(report *BankQualityReport, hasEN bool, hasRU bool, hasDE bool) {

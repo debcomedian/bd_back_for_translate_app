@@ -31,15 +31,20 @@ type attemptPayload struct {
 	AttemptedAt    *time.Time `json:"attempted_at"`
 }
 type progressPayload struct {
-	DirectionID    uint64     `json:"direction_id"`
-	Box            int        `json:"box"`
-	RepeatCount    int        `json:"repeat_count"`
-	CorrectCount   int        `json:"correct_count"`
-	IncorrectCount int        `json:"incorrect_count"`
-	MasteryScore   float64    `json:"mastery_score"`
-	LastSeenAt     *time.Time `json:"last_seen_at"`
-	NextDue        *time.Time `json:"next_due"`
-	UpdatedAt      *time.Time `json:"updated_at"`
+	DirectionID             uint64     `json:"direction_id"`
+	Box                     int        `json:"box"`
+	RepeatCount             int        `json:"repeat_count"`
+	CorrectCount            int        `json:"correct_count"`
+	IncorrectCount          int        `json:"incorrect_count"`
+	MasteryScore            float64    `json:"mastery_score"`
+	HalfLifeDays            float64    `json:"half_life_days"`
+	RecallProbability       float64    `json:"recall_probability"`
+	LastResult              string     `json:"last_result"`
+	LastResponseTimeMS      int        `json:"last_response_time_ms"`
+	DifficultyAtLastAttempt float64    `json:"difficulty_at_last_attempt"`
+	LastSeenAt              *time.Time `json:"last_seen_at"`
+	NextDue                 *time.Time `json:"next_due"`
+	UpdatedAt               *time.Time `json:"updated_at"`
 }
 type syncPushResponse struct {
 	Accepted   int `json:"accepted"`
@@ -131,18 +136,15 @@ func (h *Handler) applyAttemptEvent(uid uint64, event syncEventInput) error {
 	if payload.AttemptedAt != nil {
 		attemptedAt = *payload.AttemptedAt
 	}
-	result := payload.Result
-	if result == "" {
-		result = "incorrect"
-	}
+	result := normalizeAttemptResult(payload.Result)
 	attempt := Attempt{UserID: uid, DirectionID: direction.ID, ConceptID: direction.ConceptID, SourceFormID: direction.SourceFormID, TargetFormID: direction.TargetFormID, DirectionCode: direction.DirectionCode, PromptValue: source.Value, ExpectedValue: target.Value, ResponseValue: payload.ResponseValue, Result: result, ResponseTimeMS: payload.ResponseTimeMS, DeviceID: event.DeviceID, AttemptedAt: attemptedAt}
 	if err := h.DB.Create(&attempt).Error; err != nil {
 		return err
 	}
-	return h.bumpProgressFromAttempt(uid, direction, result, attemptedAt)
+	return h.bumpProgressFromAttempt(uid, direction, result, payload.ResponseTimeMS, attemptedAt)
 }
 
-func (h *Handler) bumpProgressFromAttempt(uid uint64, direction TrainingDirection, result string, at time.Time) error {
+func (h *Handler) bumpProgressFromAttempt(uid uint64, direction TrainingDirection, result string, responseTimeMS int, at time.Time) error {
 	var progress UserDirectionProgress
 	err := h.DB.Where("user_id = ? AND direction_id = ?", uid, direction.ID).First(&progress).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
@@ -151,29 +153,65 @@ func (h *Handler) bumpProgressFromAttempt(uid uint64, direction TrainingDirectio
 	if err == gorm.ErrRecordNotFound {
 		progress = UserDirectionProgress{UserID: uid, DirectionID: direction.ID, ConceptID: direction.ConceptID, DirectionCode: direction.DirectionCode}
 	}
+
+	result = normalizeAttemptResult(result)
+	difficulty, err := h.getDirectionFinalDifficulty(direction.ID)
+	if err != nil {
+		return err
+	}
+
+	previousLastSeenAt := progress.LastSeenAt
+	previousMastery := progress.MasteryScore
 	progress.RepeatCount++
 	if result == "correct" {
 		progress.CorrectCount++
 		progress.Box++
-		progress.MasteryScore += 1
 	} else if result == "partial" {
 		progress.CorrectCount++
-		progress.MasteryScore += 0.5
 	} else {
 		progress.IncorrectCount++
 		if progress.Box > 0 {
 			progress.Box--
 		}
-		progress.MasteryScore -= 0.25
-		if progress.MasteryScore < 0 {
-			progress.MasteryScore = 0
-		}
 	}
+
+	hlr := CalculateHalfLifeUpdate(HalfLifeInput{
+		PreviousHalfLifeDays: progress.HalfLifeDays,
+		PreviousMasteryScore: previousMastery,
+		LastSeenAt:           previousLastSeenAt,
+		AttemptedAt:          at,
+		Result:               result,
+		ResponseTimeMS:       responseTimeMS,
+		Difficulty:           difficulty,
+		RepeatCount:          progress.RepeatCount,
+	})
+
+	progress.MasteryScore = hlr.MasteryScore
+	progress.HalfLifeDays = hlr.HalfLifeDays
+	progress.RecallProbability = hlr.RecallProbability
+	progress.LastResult = result
+	progress.LastResponseTimeMS = responseTimeMS
+	progress.DifficultyAtLastAttempt = hlr.Difficulty
 	progress.LastSeenAt = &at
-	next := at.Add(time.Duration(24+progress.Box*12) * time.Hour)
-	progress.NextDue = &next
+	progress.NextDue = &hlr.NextDue
 	progress.UpdatedAt = time.Now()
-	return h.DB.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "user_id"}, {Name: "direction_id"}}, DoUpdates: clause.AssignmentColumns([]string{"concept_id", "direction_code", "box", "repeat_count", "correct_count", "incorrect_count", "mastery_score", "last_seen_at", "next_due", "updated_at"})}).Create(&progress).Error
+
+	return h.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}, {Name: "direction_id"}},
+		DoUpdates: clause.AssignmentColumns(progressUpsertColumns()),
+	}).Create(&progress).Error
+}
+
+func (h *Handler) getDirectionFinalDifficulty(directionID uint64) (float64, error) {
+	var meta TrainingDirectionMeta
+	if err := h.DB.Where("direction_id = ?", directionID).First(&meta).Error; err == nil {
+		if meta.FinalDifficulty > 0 {
+			return meta.FinalDifficulty, nil
+		}
+	} else if err != gorm.ErrRecordNotFound {
+		return 0, err
+	}
+	return defaultDifficultyForHLR, nil
 }
 
 func (h *Handler) applyProgressEvent(uid uint64, event syncEventInput) error {
@@ -192,8 +230,49 @@ func (h *Handler) applyProgressEvent(uid uint64, event syncEventInput) error {
 	if payload.UpdatedAt != nil {
 		updatedAt = *payload.UpdatedAt
 	}
-	progress := UserDirectionProgress{UserID: uid, DirectionID: direction.ID, ConceptID: direction.ConceptID, DirectionCode: direction.DirectionCode, Box: payload.Box, RepeatCount: payload.RepeatCount, CorrectCount: payload.CorrectCount, IncorrectCount: payload.IncorrectCount, MasteryScore: payload.MasteryScore, LastSeenAt: payload.LastSeenAt, NextDue: payload.NextDue, UpdatedAt: updatedAt}
-	return h.DB.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "user_id"}, {Name: "direction_id"}}, DoUpdates: clause.AssignmentColumns([]string{"concept_id", "direction_code", "box", "repeat_count", "correct_count", "incorrect_count", "mastery_score", "last_seen_at", "next_due", "updated_at"})}).Create(&progress).Error
+	progress := UserDirectionProgress{
+		UserID:                  uid,
+		DirectionID:             direction.ID,
+		ConceptID:               direction.ConceptID,
+		DirectionCode:           direction.DirectionCode,
+		Box:                     payload.Box,
+		RepeatCount:             payload.RepeatCount,
+		CorrectCount:            payload.CorrectCount,
+		IncorrectCount:          payload.IncorrectCount,
+		MasteryScore:            payload.MasteryScore,
+		HalfLifeDays:            payload.HalfLifeDays,
+		RecallProbability:       payload.RecallProbability,
+		LastResult:              payload.LastResult,
+		LastResponseTimeMS:      payload.LastResponseTimeMS,
+		DifficultyAtLastAttempt: payload.DifficultyAtLastAttempt,
+		LastSeenAt:              payload.LastSeenAt,
+		NextDue:                 payload.NextDue,
+		UpdatedAt:               updatedAt,
+	}
+	return h.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}, {Name: "direction_id"}},
+		DoUpdates: clause.AssignmentColumns(progressUpsertColumns()),
+	}).Create(&progress).Error
+}
+
+func progressUpsertColumns() []string {
+	return []string{
+		"concept_id",
+		"direction_code",
+		"box",
+		"repeat_count",
+		"correct_count",
+		"incorrect_count",
+		"mastery_score",
+		"half_life_days",
+		"recall_probability",
+		"last_result",
+		"last_response_time_ms",
+		"difficulty_at_last_attempt",
+		"last_seen_at",
+		"next_due",
+		"updated_at",
+	}
 }
 
 func (h *Handler) SyncPull(c *gin.Context) {

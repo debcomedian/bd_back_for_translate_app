@@ -54,22 +54,11 @@ func maxFormLength(forms []LexicalForm) int {
 func fallbackFormScore(form LexicalForm) float64 {
 	length := utf8.RuneCountInString(form.Value)
 	tokens := countTokens(form.Value)
-
-	lengthScore := float64(length) / 6.0
-	if lengthScore > 5 {
-		lengthScore = 5
-	}
-
-	tokenScore := 0.0
-	if tokens > 1 {
-		tokenScore = float64(tokens-1) * 0.35
-	}
-
-	score := lengthScore + tokenScore
-	if score < 0.1 {
-		score = 0.1
-	}
-	return round3(score)
+	return CalculateWordDifficulty(DifficultyInput{
+		Value:      form.Value,
+		LemmaChars: length,
+		TokenCount: tokens,
+	}).Difficulty
 }
 
 func fallbackConceptDifficulty(forms []LexicalForm) float64 {

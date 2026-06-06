@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -88,7 +87,7 @@ func ImportActiveBank(db *gorm.DB, inputPath string) (*ActiveBankImportReport, e
 			continue
 		}
 
-		concept := LexicalConcept{SourceRef: strPtrIfNotEmpty("active_bank:" + strings.TrimSpace(rec.Status)), IsActive: true}
+		concept := LexicalConcept{SourceRef: activeBankSourceRef(rec), IsActive: true}
 		if err := tx.Create(&concept).Error; err != nil {
 			tx.Rollback()
 			return nil, err
@@ -216,22 +215,42 @@ func ensureLanguage(tx *gorm.DB, code string) error {
 
 func createFormMetaFromActiveBank(tx *gorm.DB, forms []LexicalForm, rec ActiveBankRecord) (int, error) {
 	created := 0
+	cefr := InferCEFRFromFrequency(rec.Frequency.EN.Zipf, rec.Frequency.EN.Bucket)
 	for _, form := range forms {
-		meta := LexicalFormMeta{FormID: form.ID, Lemma: strPtrIfNotEmpty(form.Value), LemmaChars: utf8.RuneCountInString(form.Value), TokenCount: countTokens(form.Value), CalculatedAt: time.Now()}
-		if form.LangCode == "en" {
-			meta.ZipfFrequency = rec.Frequency.EN.Zipf
-			meta.FreqBucket = bucketLabelToInt(rec.Frequency.EN.Bucket)
-			meta.MultiwordScore = seedMultiwordScore(meta.TokenCount)
-			meta.POSScore = seedPOSScore(rec.Pos)
-			meta.ConfidencePenalty = seedConfidencePenalty(rec.Status)
-		}
-		meta.FormScore = fallbackFormScore(form) + meta.MultiwordScore + meta.POSScore + meta.ConfidencePenalty
-		if form.LangCode == "en" && rec.Frequency.EN.Zipf > 0 {
-			meta.FormScore = seedBaseDifficulty(rec.Frequency.EN.Zipf, meta.LemmaChars, rec.Status)
+		meta := LexicalFormMeta{
+			FormID:       form.ID,
+			Lemma:        strPtrIfNotEmpty(form.Value),
+			LemmaChars:   maxFormLength([]LexicalForm{form}),
+			TokenCount:   countTokens(form.Value),
+			CalculatedAt: time.Now(),
 		}
 		if meta.TokenCount < 1 {
 			meta.TokenCount = 1
 		}
+
+		input := DifficultyInput{
+			ZipfFrequency: rec.Frequency.EN.Zipf,
+			FreqBucket:    rec.Frequency.EN.Bucket,
+			LemmaChars:    meta.LemmaChars,
+			TokenCount:    meta.TokenCount,
+			Status:        rec.Status,
+			POS:           rec.Pos,
+			Value:         form.Value,
+			ExplicitCEFR:  cefr,
+		}
+		if form.LangCode == "en" {
+			input.ExplicitCEFR = ""
+			meta.ZipfFrequency = rec.Frequency.EN.Zipf
+			meta.FreqBucket = bucketLabelToInt(rec.Frequency.EN.Bucket)
+		}
+
+		breakdown := CalculateWordDifficulty(input)
+		meta.OrthographyScore = breakdown.OrthographyScore
+		meta.MultiwordScore = breakdown.MultiwordScore
+		meta.POSScore = breakdown.POSScore
+		meta.ConfidencePenalty = breakdown.ConfidencePenalty
+		meta.FormScore = breakdown.Difficulty
+
 		if err := tx.Create(&meta).Error; err != nil {
 			return 0, err
 		}
@@ -242,9 +261,27 @@ func createFormMetaFromActiveBank(tx *gorm.DB, forms []LexicalForm, rec ActiveBa
 
 func createConceptMetaFromActiveBank(tx *gorm.DB, conceptID uint64, forms []LexicalForm, rec ActiveBankRecord) error {
 	maxChars := maxFormLength(forms)
-	meta := LexicalConceptMeta{ConceptID: conceptID, CefrLevel: strPtrIfNotEmpty(seedCEFRFromBucket(rec.Frequency.EN.Bucket)), ImportanceScore: seedImportanceFromZipf(rec.Frequency.EN.Zipf), FreqBucket: bucketLabelToInt(rec.Frequency.EN.Bucket), LengthChars: maxChars, BaseDifficulty: seedBaseDifficulty(rec.Frequency.EN.Zipf, maxChars, rec.Status), MetaVersion: 1, CalculatedAt: time.Now()}
-	if meta.BaseDifficulty == 0 {
-		meta.BaseDifficulty = fallbackConceptDifficulty(forms)
+	cefr := InferCEFRFromFrequency(rec.Frequency.EN.Zipf, rec.Frequency.EN.Bucket)
+	breakdown := CalculateWordDifficulty(DifficultyInput{
+		ZipfFrequency: rec.Frequency.EN.Zipf,
+		FreqBucket:    rec.Frequency.EN.Bucket,
+		LemmaChars:    maxChars,
+		TokenCount:    1,
+		Status:        rec.Status,
+		POS:           rec.Pos,
+		Value:         firstAvailableFormValue(forms),
+		ExplicitCEFR:  cefr,
+	})
+
+	meta := LexicalConceptMeta{
+		ConceptID:       conceptID,
+		CefrLevel:       strPtrIfNotEmpty(breakdown.CefrLevel),
+		ImportanceScore: seedImportanceFromZipf(rec.Frequency.EN.Zipf),
+		FreqBucket:      bucketLabelToInt(rec.Frequency.EN.Bucket),
+		LengthChars:     maxChars,
+		BaseDifficulty:  breakdown.Difficulty,
+		MetaVersion:     difficultyMetaVersion,
+		CalculatedAt:    time.Now(),
 	}
 	return tx.Create(&meta).Error
 }
@@ -293,7 +330,7 @@ func collectSynonyms(primary string, state ActiveBankTargetState) []string {
 		out = append(out, value)
 	}
 	add(primary)
-	for _, group := range [][]string{state.StrictValidated, state.SoftValidated, state.Completed, state.FromEnglish} {
+	for _, group := range [][]string{state.StrictValidated, state.SoftValidated, state.Completed, state.FromEnglish, state.Synonyms} {
 		for _, value := range group {
 			add(value)
 		}
@@ -317,6 +354,15 @@ func normalizeLexeme(value string) string {
 	value = strings.ReplaceAll(value, "ё", "е")
 	value = strings.ReplaceAll(value, "Ё", "Е")
 	return strings.Join(strings.Fields(value), " ")
+}
+
+func firstAvailableFormValue(forms []LexicalForm) string {
+	for _, form := range forms {
+		if strings.TrimSpace(form.Value) != "" {
+			return form.Value
+		}
+	}
+	return ""
 }
 
 func nilIfEmpty(value string) *string {
@@ -346,21 +392,6 @@ func bucketLabelToInt(label string) int {
 		return 4
 	default:
 		return 5
-	}
-}
-
-func seedConfidencePenalty(status string) float64 {
-	switch strings.TrimSpace(status) {
-	case "strict_validated_all":
-		return 0.00
-	case "soft_validated_all":
-		return 0.15
-	case "soft_completed_all":
-		return 0.25
-	case "half_validated":
-		return 0.45
-	default:
-		return 0.70
 	}
 }
 
@@ -420,19 +451,10 @@ func seedImportanceFromZipf(zipf float64) int {
 }
 
 func seedBaseDifficulty(zipf float64, length int, status string) float64 {
-	freqInverse := 1.0
-	if zipf > 0 {
-		freqInverse = (6.5 - zipf) / 6.5
-		if freqInverse < 0 {
-			freqInverse = 0
-		}
-		if freqInverse > 1 {
-			freqInverse = 1
-		}
-	}
-	lengthScore := float64(length) / 12.0
-	if lengthScore > 1 {
-		lengthScore = 1
-	}
-	return (0.65*freqInverse + 0.20*lengthScore + 0.15*seedConfidencePenalty(status)) * 10.0
+	return CalculateWordDifficulty(DifficultyInput{
+		ZipfFrequency: zipf,
+		LemmaChars:    length,
+		TokenCount:    1,
+		Status:        status,
+	}).Difficulty
 }

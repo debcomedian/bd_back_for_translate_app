@@ -26,6 +26,26 @@ type Category struct {
 
 func (Category) TableName() string { return "lexicon.categories" }
 
+// CategoryDirectionAssignment stores the administrator-selected representative direction
+// for a category. The category itself is still applied to the whole lexical concept,
+// therefore all neighbour directions of the same concept become members of the category.
+// This table keeps only the explicit direction chosen in the UI and its order.
+type CategoryDirectionAssignment struct {
+	CategoryID  uint64    `json:"category_id" gorm:"primaryKey;not null;index:idx_category_direction_assignments_category_position;uniqueIndex:idx_category_direction_assignments_category_concept"`
+	DirectionID uint64    `json:"direction_id" gorm:"primaryKey;not null;index:idx_category_direction_assignments_direction"`
+	ConceptID   uint64    `json:"concept_id" gorm:"not null;uniqueIndex:idx_category_direction_assignments_category_concept"`
+	Position    int       `json:"position" gorm:"not null;default:0;index:idx_category_direction_assignments_category_position"`
+	CreatedAt   time.Time `json:"created_at" gorm:"not null;default:now()"`
+
+	Category  Category          `json:"category,omitempty" gorm:"foreignKey:CategoryID;references:ID;constraint:OnDelete:CASCADE;"`
+	Direction TrainingDirection `json:"direction,omitempty" gorm:"foreignKey:DirectionID;references:ID;constraint:OnDelete:CASCADE;"`
+	Concept   LexicalConcept    `json:"concept,omitempty" gorm:"foreignKey:ConceptID;references:ID;constraint:OnDelete:CASCADE;"`
+}
+
+func (CategoryDirectionAssignment) TableName() string {
+	return "lexicon.category_direction_assignments"
+}
+
 type LexicalConcept struct {
 	ID           uint64    `json:"id" gorm:"primaryKey"`
 	SourceWordID *uint64   `json:"source_word_id" gorm:"uniqueIndex:idx_lexical_concepts_source_word_id"`
@@ -181,18 +201,23 @@ type Attempt struct {
 func (Attempt) TableName() string { return "lexicon.attempts" }
 
 type UserDirectionProgress struct {
-	UserID         uint64     `json:"user_id" gorm:"primaryKey;index:idx_user_direction_progress_due;index:idx_user_direction_progress_box;index:idx_user_direction_progress_code;index:idx_user_direction_progress_concept"`
-	DirectionID    uint64     `json:"direction_id" gorm:"primaryKey"`
-	ConceptID      uint64     `json:"concept_id" gorm:"not null;index:idx_user_direction_progress_concept"`
-	DirectionCode  string     `json:"direction_code" gorm:"type:text;not null;index:idx_user_direction_progress_code"`
-	Box            int        `json:"box" gorm:"not null;default:0;index:idx_user_direction_progress_box"`
-	RepeatCount    int        `json:"repeat_count" gorm:"not null;default:0"`
-	CorrectCount   int        `json:"correct_count" gorm:"not null;default:0"`
-	IncorrectCount int        `json:"incorrect_count" gorm:"not null;default:0"`
-	MasteryScore   float64    `json:"mastery_score" gorm:"not null;default:0"`
-	LastSeenAt     *time.Time `json:"last_seen_at"`
-	NextDue        *time.Time `json:"next_due" gorm:"index:idx_user_direction_progress_due"`
-	UpdatedAt      time.Time  `json:"updated_at" gorm:"not null;default:now()"`
+	UserID                  uint64     `json:"user_id" gorm:"primaryKey;index:idx_user_direction_progress_due;index:idx_user_direction_progress_box;index:idx_user_direction_progress_code;index:idx_user_direction_progress_concept"`
+	DirectionID             uint64     `json:"direction_id" gorm:"primaryKey"`
+	ConceptID               uint64     `json:"concept_id" gorm:"not null;index:idx_user_direction_progress_concept"`
+	DirectionCode           string     `json:"direction_code" gorm:"type:text;not null;index:idx_user_direction_progress_code"`
+	Box                     int        `json:"box" gorm:"not null;default:0;index:idx_user_direction_progress_box"`
+	RepeatCount             int        `json:"repeat_count" gorm:"not null;default:0"`
+	CorrectCount            int        `json:"correct_count" gorm:"not null;default:0"`
+	IncorrectCount          int        `json:"incorrect_count" gorm:"not null;default:0"`
+	MasteryScore            float64    `json:"mastery_score" gorm:"not null;default:0"`
+	HalfLifeDays            float64    `json:"half_life_days" gorm:"not null;default:0"`
+	RecallProbability       float64    `json:"recall_probability" gorm:"not null;default:0"`
+	LastResult              string     `json:"last_result" gorm:"type:text"`
+	LastResponseTimeMS      int        `json:"last_response_time_ms" gorm:"not null;default:0"`
+	DifficultyAtLastAttempt float64    `json:"difficulty_at_last_attempt" gorm:"not null;default:0"`
+	LastSeenAt              *time.Time `json:"last_seen_at"`
+	NextDue                 *time.Time `json:"next_due" gorm:"index:idx_user_direction_progress_due"`
+	UpdatedAt               time.Time  `json:"updated_at" gorm:"not null;default:now()"`
 }
 
 func (UserDirectionProgress) TableName() string { return "lexicon.user_direction_progress" }

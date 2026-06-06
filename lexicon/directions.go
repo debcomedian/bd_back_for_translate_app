@@ -1,7 +1,6 @@
 package lexicon
 
 import (
-	"os"
 	"time"
 
 	"gorm.io/gorm"
@@ -96,11 +95,8 @@ func calculateDirectionMeta(tx *gorm.DB, direction TrainingDirection) (TrainingD
 		return TrainingDirectionMeta{}, err
 	}
 
-	bias := directionBias(direction.SourceLangCode, direction.TargetLangCode)
-	final := conceptDifficulty*0.50 + targetScore*0.35 + sourceScore*0.15 + bias - synonymRelief
-	if final < 0.1 {
-		final = 0.1
-	}
+	bias := DirectionDifficultyBias(direction.SourceLangCode, direction.TargetLangCode)
+	final := BlendDirectionDifficulty(conceptDifficulty, sourceScore, targetScore, bias, synonymRelief)
 
 	return TrainingDirectionMeta{
 		DirectionID:           direction.ID,
@@ -110,7 +106,7 @@ func calculateDirectionMeta(tx *gorm.DB, direction TrainingDirection) (TrainingD
 		DirectionBias:         round3(bias),
 		SynonymRelief:         round3(synonymRelief),
 		FinalDifficulty:       round3(final),
-		MetaVersion:           1,
+		MetaVersion:           difficultyMetaVersion,
 		CalculatedAt:          time.Now(),
 	}, nil
 }
@@ -154,27 +150,9 @@ func getSynonymRelief(tx *gorm.DB, targetFormID uint64) (float64, error) {
 	if err := tx.Model(&LexicalFormSynonym{}).Where("form_id = ?", targetFormID).Count(&count).Error; err != nil {
 		return 0, err
 	}
-	relief := float64(count) * 0.05
-	if relief > 0.30 {
-		relief = 0.30
-	}
-	return relief, nil
+	return NormalizeSynonymRelief(int(count)), nil
 }
 
 func directionBias(sourceLang, targetLang string) float64 {
-	nativeLang := NormalizeValue(os.Getenv("NATIVE_LANG_CODE"))
-	if nativeLang == "" {
-		nativeLang = "ru"
-	}
-
-	switch {
-	case targetLang == nativeLang:
-		return -0.25
-	case sourceLang == nativeLang && targetLang != nativeLang:
-		return 0.60
-	case sourceLang != nativeLang && targetLang != nativeLang:
-		return 0.80
-	default:
-		return 0
-	}
+	return DirectionDifficultyBias(sourceLang, targetLang)
 }

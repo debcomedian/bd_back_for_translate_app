@@ -84,7 +84,24 @@ func AdminLogin(c *gin.Context) {
 		return
 	}
 
-	token, err := auth.Sign(1, "admin")
+	uid := 0
+	responseLogin := defaultAdminLogin()
+	if DB != nil {
+		adminUser, ensureErr := ensureEnvAdminUser(login, req.Password)
+		if ensureErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "internal_error",
+				"message": "Не удалось подготовить учётную запись администратора",
+			})
+			return
+		}
+		if adminUser != nil {
+			uid = int(adminUser.ID)
+			responseLogin = adminUser.Username
+		}
+	}
+
+	token, err := auth.Sign(uid, "admin")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
@@ -96,7 +113,7 @@ func AdminLogin(c *gin.Context) {
 	c.JSON(http.StatusOK, adminLoginResponse{
 		Token: token,
 		Role:  "admin",
-		Login: defaultAdminLogin(),
+		Login: responseLogin,
 	})
 }
 
@@ -104,6 +121,52 @@ func findActiveAdminUser(login string) (*models.AdminUser, error) {
 	var adminUser models.AdminUser
 	err := DB.Where("is_active = TRUE").Where("username = ? OR email = ?", login, login).First(&adminUser).Error
 	if err != nil {
+		return nil, err
+	}
+	return &adminUser, nil
+}
+
+func ensureEnvAdminUser(login string, password string) (*models.AdminUser, error) {
+	if DB == nil {
+		return nil, nil
+	}
+
+	var adminUser models.AdminUser
+	err := DB.Where("username = ? OR email = ?", login, login).First(&adminUser).Error
+	if err == nil {
+		updates := map[string]any{}
+		if adminUser.Role == "" {
+			updates["role"] = "admin"
+			adminUser.Role = "admin"
+		}
+		if !adminUser.IsActive {
+			updates["is_active"] = true
+			adminUser.IsActive = true
+		}
+		if len(updates) > 0 {
+			if err := DB.Model(&models.AdminUser{}).Where("id = ?", adminUser.ID).Updates(updates).Error; err != nil {
+				return nil, err
+			}
+		}
+		return &adminUser, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	adminUser = models.AdminUser{
+		Username:     defaultAdminLogin(),
+		Email:        "",
+		PasswordHash: string(hash),
+		Role:         "admin",
+		IsActive:     true,
+	}
+	if err := DB.Create(&adminUser).Error; err != nil {
 		return nil, err
 	}
 	return &adminUser, nil
