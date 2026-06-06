@@ -1,11 +1,14 @@
 .env
 *.sql
+*.jsonl
 *.exe
 *.zip
 *.md
 *.txt
+*.ps1
 /docs
 /data
+/demo
 /info
 /test/*.csv
 /test/*.json
@@ -14,3 +17,7 @@
 /v1
 /web-admin/package-lock.json
 /web-admin/node_modules
+/web-admin/dist/
+/web-admin/*.tsbuildinfo
+/web-admin/vite.config.js
+/web-admin/vite.config.d.ts
