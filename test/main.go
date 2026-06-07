@@ -2,82 +2,91 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
+	startedAt := time.Now()
 	loadEnv()
 
 	cfg, err := LoadConfig()
 	if err != nil {
-		log.Fatalf("[тестовый контур] ошибка конфигурации: %v", err)
+		log.Fatalf("[test] config failed: %v", err)
 	}
 
+	log.Printf("[test] start mode reset_only=%v seed_only=%v run_newman_only=%v skip_newman=%v newman_suite=%s", cfg.ResetOnly, cfg.SeedOnly, cfg.RunNewmanOnly, cfg.SkipNewman, cfg.NewmanSuite)
+
 	if cfg.EnsureDB {
-		if err := EnsureTestDatabaseExists(cfg); err != nil {
-			log.Fatalf("[тестовый контур] ошибка подготовки тестовой базы данных: %v", err)
-		}
+		runStep("ensure database", func() error {
+			return EnsureTestDatabaseExists(cfg)
+		})
 	}
 
 	db, err := OpenTestDB(cfg)
 	if err != nil {
-		log.Fatalf("[тестовый контур] ошибка подключения к тестовой базе данных: %v", err)
+		log.Fatalf("[test] open database failed: %v", err)
 	}
 	defer CloseDB(db)
 
 	if !cfg.RunNewmanOnly {
-		if err := RebuildTestSchema(db, cfg); err != nil {
-			log.Fatalf("[тестовый контур] ошибка пересоздания тестовой схемы: %v", err)
-		}
-		log.Println("[тестовый контур] тестовая схема пересоздана")
+		runStep("rebuild schema", func() error {
+			return RebuildTestSchema(db, cfg)
+		})
 	}
 
 	if cfg.ResetOnly || (!cfg.RunNewmanOnly && !cfg.SeedOnly) {
-		if err := ResetTestDatabase(db, cfg); err != nil {
-			log.Fatalf("[тестовый контур] ошибка сброса тестовых данных: %v", err)
-		}
-		log.Println("[тестовый контур] тестовые данные сброшены")
+		runStep("reset data", func() error {
+			return ResetTestDatabase(db, cfg)
+		})
 	}
 
-	if cfg.SeedOnly || (!cfg.RunNewmanOnly) {
-		if err := SeedAdminUser(db, cfg); err != nil {
-			log.Fatalf("[тестовый контур] ошибка создания тестового администратора: %v", err)
-		}
-		log.Println("[тестовый контур] тестовый администратор создан")
+	if cfg.SeedOnly || !cfg.RunNewmanOnly {
+		runStep("seed admin", func() error {
+			return SeedAdminUser(db, cfg)
+		})
 
 		if cfg.SeedActiveBank {
-			if err := SeedActiveBank(db, cfg); err != nil {
-				log.Fatalf("[тестовый контур] ошибка подготовки active_bank: %v", err)
-			}
-			log.Println("[тестовый контур] active_bank подготовлен")
+			runStep("seed active bank", func() error {
+				return SeedActiveBank(db, cfg)
+			})
 		}
 	}
 
 	if !cfg.ResetOnly && !cfg.SeedOnly {
-		if err := AssertPreparedTestState(db, cfg); err != nil {
-			log.Fatalf("[тестовый контур] ошибка проверки подготовленного состояния: %v", err)
-		}
+		runStep("assert prepared state", func() error {
+			return AssertPreparedTestState(db, cfg)
+		})
 	}
 
 	if cfg.ResetOnly || cfg.SeedOnly || cfg.SkipNewman {
-		log.Println("[тестовый контур] запуск Newman пропущен")
+		log.Printf("[test] newman skipped total=%s", time.Since(startedAt).Round(time.Millisecond))
 		return
 	}
 
-	if err := RunNewman(cfg); err != nil {
-		log.Fatalf("[тестовый контур] ошибка Newman: %v", err)
-	}
+	runStep("newman", func() error {
+		return RunNewman(cfg)
+	})
 
-	log.Println("[тестовый контур] тестовый сценарий завершён")
+	log.Printf("[test] completed total=%s", time.Since(startedAt).Round(time.Millisecond))
+}
+
+func runStep(name string, fn func() error) {
+	startedAt := time.Now()
+	log.Printf("[test] step=%s status=start", name)
+	if err := fn(); err != nil {
+		log.Fatalf("[test] step=%s status=failed elapsed=%s error=%v", name, time.Since(startedAt).Round(time.Millisecond), err)
+	}
+	log.Printf("[test] step=%s status=ok elapsed=%s", name, time.Since(startedAt).Round(time.Millisecond))
 }
 
 func loadEnv() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("[тестовый контур] корневой .env не найден, используются переменные окружения")
+		log.Println("[test] root .env not found, existing environment is used")
 	}
 
 	if err := godotenv.Overload("test/.env.test"); err != nil {
-		log.Println("[тестовый контур] test/.env.test не найден, используются уже загруженные переменные окружения")
+		log.Println("[test] test/.env.test not found, existing environment is used")
 	}
 }

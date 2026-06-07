@@ -21,6 +21,8 @@ export type FetchDirectionsParams = {
   source_lang_code?: string;
   target_lang_code?: string;
   active?: "true" | "false" | "all";
+  category_id?: number;
+  unassigned?: "true" | "false";
   sort_by?: DirectionSortBy;
   sort_dir?: DirectionSortDir;
 };
@@ -55,30 +57,12 @@ export function normalizeDirection(item: unknown): TrainingDirection {
       "SourceFormId",
     ]),
     source_value: pickString(item, ["source_value", "SourceValue"]),
-    source_normalized_value: pickString(
-      item,
-      ["source_normalized_value", "SourceNormalizedValue"],
-      "",
-    ),
-    source_transcription: pickNullableString(item, [
-      "source_transcription",
-      "SourceTranscription",
-    ]),
     target_form_id: pickNumber(item, [
       "target_form_id",
       "TargetFormID",
       "TargetFormId",
     ]),
     target_value: pickString(item, ["target_value", "TargetValue"]),
-    target_normalized_value: pickString(
-      item,
-      ["target_normalized_value", "TargetNormalizedValue"],
-      "",
-    ),
-    target_transcription: pickNullableString(item, [
-      "target_transcription",
-      "TargetTranscription",
-    ]),
     category_id: pickNullableNumber(item, [
       "category_id",
       "CategoryID",
@@ -248,4 +232,115 @@ export async function fetchDirections(
     params: compactParams(params),
   });
   return normalizeDirectionListResponse(data, params);
+}
+
+export type UpdateDirectionPayload = {
+  category_id?: number | null;
+  cefr_level?: string | null;
+  source_lang_code?: string;
+  target_lang_code?: string;
+  source_value?: string;
+  target_value?: string;
+  importance_score?: number;
+  concept_base_difficulty?: number;
+  source_form_score?: number;
+  target_form_score?: number;
+  direction_bias?: number;
+  synonym_relief?: number;
+  final_difficulty?: number | null;
+  is_active?: boolean;
+};
+
+export async function updateDirection(
+  id: number,
+  payload: UpdateDirectionPayload,
+): Promise<TrainingDirection> {
+  const { data } = await api.patch<unknown>(`/admin/directions/${id}`, payload);
+  return normalizeDirection(data);
+}
+
+
+export type UpdateCategoryDirectionsPayload = {
+  direction_ids: number[];
+  mode?: "replace" | "add" | "remove";
+};
+
+export type UpdateCategoryDirectionsResponse = {
+  category_id: number;
+  mode: string;
+  direction_count: number;
+  representative_count?: number;
+  concept_count?: number;
+  affected_concepts?: number;
+  affected_directions?: number;
+  associated_direction_count?: number;
+  snapshot_version?: number;
+};
+
+export type CategoryDirectionSelectionResponse = {
+  category_id: number;
+  items: TrainingDirection[];
+  direction_ids: number[];
+  concept_ids: number[];
+  representative_count: number;
+  associated_direction_count: number;
+  has_explicit_representatives: boolean;
+};
+
+export async function fetchCategoryDirections(
+  categoryId: number,
+  params: FetchDirectionsParams = {},
+): Promise<DirectionListResponse> {
+  const { data } = await api.get<unknown>(
+    `/admin/categories/${categoryId}/directions`,
+    { params: compactParams(params) },
+  );
+  return normalizeDirectionListResponse(data, params);
+}
+
+
+export type FetchCategoryDirectionSelectionParams = {
+  sort_by?: DirectionSortBy;
+  sort_dir?: DirectionSortDir;
+};
+
+export async function fetchCategoryDirectionSelection(
+  categoryId: number,
+  params: FetchCategoryDirectionSelectionParams = {},
+): Promise<CategoryDirectionSelectionResponse> {
+  const { data } = await api.get<unknown>(
+    `/admin/categories/${categoryId}/direction-selection`,
+    { params: compactParams(params) },
+  );
+
+  const obj = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+  const items = directionItemsFromResponse(obj).map(normalizeDirection);
+
+  return {
+    category_id: Number(obj.category_id ?? categoryId) || categoryId,
+    items,
+    direction_ids: Array.isArray(obj.direction_ids)
+      ? obj.direction_ids.map((value) => Number(value)).filter((value) => value > 0)
+      : items.map((item) => item.direction_id),
+    concept_ids: Array.isArray(obj.concept_ids)
+      ? obj.concept_ids.map((value) => Number(value)).filter((value) => value > 0)
+      : Array.from(new Set(items.map((item) => item.concept_id))),
+    representative_count: Number(obj.representative_count ?? items.length) || items.length,
+    associated_direction_count: Number(obj.associated_direction_count ?? items.length) || items.length,
+    has_explicit_representatives: Boolean(obj.has_explicit_representatives),
+  };
+}
+
+export async function updateCategoryDirections(
+  categoryId: number,
+  payload: UpdateCategoryDirectionsPayload,
+): Promise<UpdateCategoryDirectionsResponse> {
+  const { data } = await api.post<UpdateCategoryDirectionsResponse>(
+    `/admin/categories/${categoryId}/directions`,
+    {
+      direction_ids: Array.from(new Set(payload.direction_ids)).filter((id) => id > 0),
+      mode: payload.mode ?? "replace",
+    },
+  );
+  return data;
 }

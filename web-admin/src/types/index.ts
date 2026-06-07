@@ -88,12 +88,8 @@ export type TrainingDirection = {
   target_lang_code: string;
   source_form_id: number;
   source_value: string;
-  source_normalized_value?: string;
-  source_transcription?: string | null;
   target_form_id: number;
   target_value: string;
-  target_normalized_value?: string;
-  target_transcription?: string | null;
   category_id?: number | null;
   category_slug?: string | null;
   category_name_ru?: string | null;
@@ -188,19 +184,64 @@ export type RecalculateMetaResponse = {
   snapshot?: SnapshotVersion;
 };
 
+export type BankQualitySummary = {
+  strict_validated_all_percent?: number;
+  half_validated_percent?: number;
+  tail_percent?: number;
+  full_trilingual_percent?: number;
+  rows_with_issues_percent?: number;
+  quality_gate_passed?: boolean;
+  quality_gate_reason?: string;
+};
+
+export type BankQualityCoverage = {
+  has_en?: number;
+  has_ru?: number;
+  has_de?: number;
+  full_trilingual?: number;
+  en_ru_only?: number;
+  en_de_only?: number;
+  en_only?: number;
+  other_partial?: number;
+};
+
+export type BankQualityRiskRow = {
+  line?: number;
+  lemma?: string;
+  pos?: string;
+  status?: string;
+  bucket?: string;
+  risk_score?: number;
+  risk_labels?: string[];
+  ru?: string;
+  de?: string;
+};
+
 export type BankQualityReport = {
   generated_at?: string;
   input_path?: string;
   total_rows?: number;
   status_counts?: Record<string, number>;
   bucket_counts?: Record<string, number>;
+  issue_counts?: Record<string, number>;
+  issue_code_counts?: Record<string, number>;
+  direction_counts?: Record<string, number>;
+  target_coverage?: BankQualityCoverage;
+  summary?: BankQualitySummary;
+  recommendations?: string[];
+  first_rows?: BankQualityRiskRow[];
+  top_risk_rows?: BankQualityRiskRow[];
   full_trilingual_count?: number;
   full_trilingual_percent?: number;
   half_validated_percent?: number;
   tail_percent?: number;
+  rows_with_issues_percent?: number;
   unsafe_candidates_count?: number;
   wide_synonym_candidates_count?: number;
+  accent_variant_candidates_count?: number;
+  weak_frequency_bucket_count?: number;
   gate_passed?: boolean;
+  quality_gate_reason?: string;
   gate_errors?: string[];
   gate_warnings?: string[];
   unsafe_candidates?: unknown[];
@@ -249,4 +290,97 @@ export type WordMetaBase = {
   meta_forced_introduce_flag: boolean;
   meta_version: number;
   calculated_at: string;
+};
+
+export type ActiveBankTargetState = {
+  strict_validated?: string[];
+  soft_validated?: string[];
+  completed?: string[];
+  from_english?: string[];
+  candidates?: string[];
+  synonyms?: string[];
+};
+
+export type ActiveBankRecord = {
+  en_lemma: string;
+  pos: "noun" | "verb" | "adj" | "adv" | string;
+  status: string;
+  layer?: string;
+  confidence?: string;
+  flags?: string[];
+  glosses: string[];
+  targets: Record<string, ActiveBankTargetState>;
+  frequency: {
+    en: {
+      zipf: number;
+      bucket: string;
+      priority_score?: number;
+    };
+    priority_score?: number;
+  };
+  bank_selection?: Record<string, unknown>;
+  quality_review?: Record<string, unknown>;
+};
+
+export type ActiveBankImportDiff = {
+  field: string;
+  existing: unknown;
+  incoming: unknown;
+};
+
+export type ActiveBankImportItemStatus =
+  | "new"
+  | "duplicate"
+  | "collision"
+  | "invalid";
+
+export type ActiveBankImportPreviewItem = {
+  id: string;
+  row: number;
+  status: ActiveBankImportItemStatus;
+  existing_concept_id?: number;
+  incoming: ActiveBankRecord;
+  existing?: ActiveBankRecord;
+  diff?: ActiveBankImportDiff[];
+  errors?: string[];
+};
+
+export type ActiveBankImportPreviewStats = {
+  total: number;
+  valid: number;
+  invalid: number;
+  new: number;
+  duplicates: number;
+  collisions: number;
+};
+
+export type ActiveBankImportPreviewResponse = {
+  session_id: string;
+  filename: string;
+  stats: ActiveBankImportPreviewStats;
+  items: ActiveBankImportPreviewItem[];
+};
+
+export type ActiveBankImportResolutionAction =
+  | "keep_existing"
+  | "use_incoming"
+  | "merge_edit"
+  | "skip";
+
+export type ActiveBankImportResolution = {
+  row: number;
+  action: ActiveBankImportResolutionAction;
+  merged?: ActiveBankRecord;
+};
+
+export type ActiveBankImportCommitResponse = {
+  stats: {
+    inserted: number;
+    updated: number;
+    skipped: number;
+    failed: number;
+  };
+  snapshot_published: boolean;
+  snapshot_version_code?: number;
+  snapshot_checksum?: string;
 };

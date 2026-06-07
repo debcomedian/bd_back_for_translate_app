@@ -17,6 +17,7 @@ type Config struct {
 	SeedActiveBank     bool
 
 	NewmanBin         string
+	NewmanSuite       string
 	NewmanCollection  string
 	NewmanEnvironment string
 	NewmanReportDir   string
@@ -43,10 +44,11 @@ type Config struct {
 func LoadConfig() (Config, error) {
 	var cfg Config
 
-	flag.BoolVar(&cfg.ResetOnly, "reset-only", false, "сбросить тестовую базу данных и завершить работу")
-	flag.BoolVar(&cfg.SeedOnly, "seed-only", false, "создать тестового администратора и завершить работу")
-	flag.BoolVar(&cfg.RunNewmanOnly, "run-newman-only", false, "пропустить сброс и подготовку данных, запустить только Newman")
-	flag.BoolVar(&cfg.SkipNewman, "skip-newman", false, "пропустить запуск Newman после сброса и подготовки данных")
+	flag.BoolVar(&cfg.ResetOnly, "reset-only", false, "очистить тестовую базу данных и завершить работу")
+	flag.BoolVar(&cfg.SeedOnly, "seed-only", false, "создать тестовые данные и завершить работу")
+	flag.BoolVar(&cfg.RunNewmanOnly, "run-newman-only", false, "пропустить подготовку БД и запустить только Newman")
+	flag.BoolVar(&cfg.SkipNewman, "skip-newman", false, "подготовить тестовую БД без запуска Newman")
+	flag.StringVar(&cfg.NewmanSuite, "newman-suite", "", "Postman/Newman набор: lexicon, v1 или путь к collection.json")
 	flag.Parse()
 
 	cfg.TestDatabaseURL = strings.TrimSpace(os.Getenv("TEST_DATABASE_URL"))
@@ -57,6 +59,9 @@ func LoadConfig() (Config, error) {
 	cfg.NewmanCollection = strings.TrimSpace(os.Getenv("NEWMAN_COLLECTION"))
 	cfg.NewmanEnvironment = strings.TrimSpace(os.Getenv("NEWMAN_ENVIRONMENT"))
 	cfg.NewmanReportDir = strings.TrimSpace(os.Getenv("NEWMAN_REPORT_DIR"))
+	if cfg.NewmanSuite == "" {
+		cfg.NewmanSuite = strings.TrimSpace(os.Getenv("NEWMAN_SUITE"))
+	}
 
 	cfg.TestAdminUsername = strings.TrimSpace(os.Getenv("TEST_ADMIN_USERNAME"))
 	cfg.TestAdminEmail = strings.TrimSpace(os.Getenv("TEST_ADMIN_EMAIL"))
@@ -89,9 +94,11 @@ func LoadConfig() (Config, error) {
 		cfg.TestActiveBankPath = filepath.ToSlash(filepath.Join("test", "fixtures", "active_bank_test.jsonl"))
 	}
 
-	if cfg.NewmanCollection == "" {
-		cfg.NewmanCollection = filepath.ToSlash(filepath.Join("test", "Rugen_Lexicon_Handlers_detailed_asserts.postman_collection.json"))
+	if cfg.NewmanSuite == "" {
+		cfg.NewmanSuite = "lexicon"
 	}
+	cfg.NewmanCollection = resolveNewmanCollection(cfg.NewmanSuite, cfg.NewmanCollection)
+
 	if cfg.NewmanEnvironment == "" {
 		cfg.NewmanEnvironment = filepath.ToSlash(filepath.Join("test", "Rugen_local.postman_environment.json"))
 	}
@@ -100,6 +107,21 @@ func LoadConfig() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func resolveNewmanCollection(suite string, explicitPath string) string {
+	if explicitPath != "" {
+		return explicitPath
+	}
+
+	switch strings.ToLower(strings.TrimSpace(suite)) {
+	case "", "lexicon", "current":
+		return filepath.ToSlash(filepath.Join("test", "Rugen_Lexicon_Handlers_detailed_asserts.postman_collection.json"))
+	case "v1", "legacy":
+		return filepath.ToSlash(filepath.Join("test", "Rugen_V1_Handlers_detailed_asserts.postman_collection.json"))
+	default:
+		return suite
+	}
 }
 
 func parseBoolEnv(name string) bool {

@@ -13,13 +13,13 @@ export function AppShell() {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="brand">Админ-панель Rugen</div>
+        <div className="brand">Панель администратора</div>
         <nav className="nav">
           <NavLink to="/directions">Направления</NavLink>
           <NavLink to="/categories">Категории</NavLink>
           <NavLink to="/import">Импорт и пересчёт</NavLink>
           <NavLink to="/bank-quality">Качество банка</NavLink>
-          <NavLink to="/snapshot">Снимок контента</NavLink>
+          <NavLink to="/snapshot">Снимок данных</NavLink>
         </nav>
         <div className="sidebar-footer">
           <button className="btn btn-ghost" onClick={handleLogout}>

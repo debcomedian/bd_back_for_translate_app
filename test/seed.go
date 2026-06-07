@@ -21,12 +21,12 @@ func SeedAdminUser(db *gorm.DB, cfg Config) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		var admin models.AdminUser
 
-		err := tx.Where("username = ? OR email = ?", cfg.TestAdminUsername, cfg.TestAdminEmail).First(&admin).Error
-		if err != nil && err != gorm.ErrRecordNotFound {
-			return err
+		result := tx.Where("username = ? OR email = ?", cfg.TestAdminUsername, cfg.TestAdminEmail).Limit(1).Find(&admin)
+		if result.Error != nil {
+			return result.Error
 		}
 
-		if err == gorm.ErrRecordNotFound {
+		if result.RowsAffected == 0 {
 			admin = models.AdminUser{
 				Username:     cfg.TestAdminUsername,
 				Email:        cfg.TestAdminEmail,

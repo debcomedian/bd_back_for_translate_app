@@ -1,7 +1,8 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { extractApiError } from "../../shared/api/client";
+import { FixedToast, type AppToast } from "../../shared/ui/FixedToast";
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -9,16 +10,27 @@ export function LoginForm() {
   const [form, setForm] = useState({ login: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<AppToast | null>(null);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = window.setTimeout(() => {
+      setToast((current) => (current?.id === toast.id ? null : current));
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      await login(form.login, form.password);
+      await login(form.login.trim(), form.password);
       navigate("/directions", { replace: true });
     } catch (e) {
-      setError(extractApiError(e));
+      const message = extractApiError(e);
+      setError(message);
+      setToast({ id: Date.now(), kind: "error", message });
     } finally {
       setLoading(false);
     }
@@ -26,6 +38,12 @@ export function LoginForm() {
 
   return (
     <form className="stack" onSubmit={handleSubmit}>
+      <FixedToast toast={toast} />
+      {error ? (
+        <div className="visually-hidden" role="alert">
+          {error}
+        </div>
+      ) : null}
       <div>
         <label className="label" htmlFor="login">
           Логин
@@ -33,6 +51,7 @@ export function LoginForm() {
         <input
           id="login"
           className="input"
+          autoComplete="username"
           value={form.login}
           onChange={(e) => setForm((p) => ({ ...p, login: e.target.value }))}
           required
@@ -46,14 +65,14 @@ export function LoginForm() {
           id="password"
           type="password"
           className="input"
+          autoComplete="current-password"
           value={form.password}
           onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
           required
         />
       </div>
-      {error ? <div className="error">{error}</div> : null}
       <button className="btn btn-primary" disabled={loading} type="submit">
-        {loading ? "Вход..." : "Войти"}
+        {loading ? "Проверка..." : "Войти"}
       </button>
     </form>
   );

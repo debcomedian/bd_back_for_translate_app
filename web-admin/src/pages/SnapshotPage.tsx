@@ -5,20 +5,45 @@ import { extractApiError } from "../shared/api/client";
 import { PageHeader } from "../shared/ui/PageHeader";
 import type { SnapshotResponse } from "../types";
 
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+function formatUtcPlus3(value?: string | null): string {
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const shifted = new Date(date.getTime() + 3 * 60 * 60 * 1000);
+  const year = shifted.getUTCFullYear();
+  const month = pad(shifted.getUTCMonth() + 1);
+  const day = pad(shifted.getUTCDate());
+  const hours = pad(shifted.getUTCHours());
+  const minutes = pad(shifted.getUTCMinutes());
+  const seconds = pad(shifted.getUTCSeconds());
+
+  return `${year}:${month}:${day} ${hours}:${minutes}:${seconds}`;
+}
+
+function snapshotTypeLabel(value?: string | null): string {
+  if (value === "lexicon_directional") return "Направленный словарный контур";
+  if (value === "concepts") return "Смысловые карточки";
+  if (value === "training") return "Учебные задания";
+  return value || "—";
+}
+
 function CountCard({
   title,
   value,
-  hint,
 }: {
   title: string;
   value: number;
-  hint?: string;
 }) {
   return (
     <div className="card stack stat-card">
       <h2>{title}</h2>
       <div className="stat-value">{value}</div>
-      {hint ? <div className="muted">{hint}</div> : null}
     </div>
   );
 }
@@ -64,8 +89,8 @@ export function SnapshotPage() {
   return (
     <div className="stack">
       <PageHeader
-        title="Снимок контента"
-        subtitle="Полная offline-выгрузка новой направленной модели для мобильного клиента."
+        title="Снимок данных"
+        subtitle="Опубликованный набор данных для загрузки мобильным клиентом."
         actions={
           <>
             <button className="btn btn-secondary" onClick={() => void load()}>
@@ -82,41 +107,33 @@ export function SnapshotPage() {
         }
       />
       {error ? <div className="error">{error}</div> : null}
-      {loading ? <div className="notice">Загрузка snapshot...</div> : null}
+      {loading ? <div className="notice">Загрузка снимка данных...</div> : null}
       <div className="card stack">
-        <h2>Активная версия snapshot</h2>
+        <h2>Активная версия</h2>
         {version ? (
           <dl className="kv">
             <dt>ID</dt>
             <dd>{version.id}</dd>
-            <dt>Тип</dt>
-            <dd>{version.snapshot_type}</dd>
+            <dt>Состав данных</dt>
+            <dd>{snapshotTypeLabel(version.snapshot_type)}</dd>
             <dt>Код версии</dt>
             <dd>{version.version_code}</dd>
-            <dt>Контрольная сумма</dt>
-            <dd>{version.checksum}</dd>
-            <dt>Опубликовано</dt>
-            <dd>{version.published_at ?? "—"}</dd>
+            <dt>Код проверки целостности</dt>
+            <dd className="break-word">{version.checksum}</dd>
+            <dt>Опубликовано UTC+3</dt>
+            <dd>{formatUtcPlus3(version.published_at)}</dd>
           </dl>
         ) : (
           <div className="notice">
-            Активная версия snapshot ещё не опубликована.
+            Активная версия ещё не опубликована.
           </div>
         )}
       </div>
       <div className="grid-4">
         <CountCard title="Языки" value={data?.languages.length ?? 0} />
         <CountCard title="Категории" value={data?.categories.length ?? 0} />
-        <CountCard
-          title="Концепты"
-          value={data?.concepts.length ?? 0}
-          hint="Смысловые карточки"
-        />
-        <CountCard
-          title="Формы"
-          value={data?.forms.length ?? 0}
-          hint="Языковые формы"
-        />
+        <CountCard title="Карточки" value={data?.concepts.length ?? 0} />
+        <CountCard title="Формы" value={data?.forms.length ?? 0} />
         <CountCard
           title="Метаданные карточек"
           value={data?.concept_meta.length ?? 0}
@@ -126,11 +143,7 @@ export function SnapshotPage() {
           value={data?.form_meta.length ?? 0}
         />
         <CountCard title="Синонимы" value={data?.form_synonyms.length ?? 0} />
-        <CountCard
-          title="Направления"
-          value={data?.directions.length ?? 0}
-          hint="источник → цель"
-        />
+        <CountCard title="Направления" value={data?.directions.length ?? 0} />
       </div>
     </div>
   );

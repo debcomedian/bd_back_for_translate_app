@@ -13,46 +13,51 @@ func RunNewman(cfg Config) error {
 		return err
 	}
 
+	if _, err := os.Stat(cfg.NewmanCollection); err != nil {
+		return fmt.Errorf("Newman collection недоступен: %s: %w", cfg.NewmanCollection, err)
+	}
+	if _, err := os.Stat(cfg.NewmanEnvironment); err != nil {
+		return fmt.Errorf("Newman environment недоступен: %s: %w", cfg.NewmanEnvironment, err)
+	}
+
 	junitReport := filepath.Join(cfg.NewmanReportDir, "newman-report.xml")
-
-	if runtime.GOOS == "windows" {
-		bin := cfg.NewmanBin
-		if bin == "" {
-			appData := os.Getenv("APPDATA")
-			if appData == "" {
-				return fmt.Errorf("APPDATA пустой, переменная NEWMAN_BIN не задана")
-			}
-			bin = filepath.Join(appData, "npm", "newman.cmd")
-		}
-
-		args := []string{
-			"/C", bin,
-			"run", cfg.NewmanCollection,
-			"-e", cfg.NewmanEnvironment,
-			"--reporters", "cli,junit",
-			"--reporter-junit-export", junitReport,
-		}
-		cmd := exec.Command("cmd", args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
-		return cmd.Run()
+	bin, err := resolveNewmanBin(cfg)
+	if err != nil {
+		return err
 	}
 
-	bin := cfg.NewmanBin
-	if bin == "" {
-		bin = "newman"
-	}
-
-	cmd := exec.Command(
-		bin,
+	args := []string{
 		"run", cfg.NewmanCollection,
 		"-e", cfg.NewmanEnvironment,
 		"--reporters", "cli,junit",
 		"--reporter-junit-export", junitReport,
-	)
+	}
+
+	cmd := exec.Command(bin, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	return cmd.Run()
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Newman завершился с ошибкой: %w", err)
+	}
+
+	fmt.Printf("[test] Newman report: %s\n", junitReport)
+	return nil
+}
+
+func resolveNewmanBin(cfg Config) (string, error) {
+	if cfg.NewmanBin != "" {
+		return cfg.NewmanBin, nil
+	}
+
+	if runtime.GOOS == "windows" {
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			return "", fmt.Errorf("APPDATA пустой, задайте NEWMAN_BIN или установите newman через npm install -g newman")
+		}
+		return filepath.Join(appData, "npm", "newman.cmd"), nil
+	}
+
+	return "newman", nil
 }
